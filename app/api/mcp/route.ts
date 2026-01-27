@@ -68,10 +68,10 @@ function widgetHtml() {
   .card { flex: 0 0 100px; padding: 12px; border: 1px solid rgba(0,0,0,.08); border-radius: 14px; text-align: center; background: rgba(255,255,255,0.3); transition: transform 0.2s; cursor: pointer; }
   .card.active { border-color: #ff922b; background: rgba(255,146,43,0.1); }
   .card:active { transform: scale(0.95); }
-  .chart-wrapper { margin: 25px 0 15px 0; background: rgba(0,0,0,0.02); border-radius: 12px; padding: 30px 20px 15px 20px; position: relative; }
-  .chart-y-axis { position: absolute; left: 8px; top: 30px; bottom: 50px; width: 32px; display: flex; flex-direction: column; justify-content: space-between; font-size: 8px; color: #666; text-align: right; padding-right: 6px; border-right: 1px solid rgba(0,0,0,0.15); }
-  .chart-area { margin-left: 40px; height: 100px; position: relative; border-bottom: 1px solid rgba(0,0,0,0.15); }
-  .chart-x-axis { margin-left: 40px; display: flex; justify-content: space-between; margin-top: 10px; font-size: 8px; color: #666; }
+  .chart-wrapper { margin: 25px 0 15px 0; background: rgba(0,0,0,0.02); border-radius: 12px; padding: 35px 20px 20px 20px; position: relative; }
+  .chart-y-axis { position: absolute; left: 8px; top: 35px; bottom: 60px; width: 32px; display: flex; flex-direction: column; justify-content: space-between; font-size: 8px; color: #666; text-align: right; padding-right: 6px; border-right: 1px solid rgba(0,0,0,0.15); }
+  .chart-area { margin-left: 40px; height: 150px; position: relative; border-bottom: 1px solid rgba(0,0,0,0.15); }
+  .chart-x-axis { margin-left: 40px; display: flex; justify-content: space-between; margin-top: 12px; font-size: 8px; color: #666; }
   .detail-panel { margin-top: 12px; padding: 14px; border-radius: 12px; background: rgba(0,0,0,0.04); font-size: 13px; line-height: 1.6; display: none; }
   @media (prefers-color-scheme: dark) {
     body { color: #eee; }
@@ -138,8 +138,8 @@ function widgetHtml() {
       panel.innerHTML = "";
 
       const temps = daily.map(d => d.temp_max_c).filter(t => !isNaN(t));
-      const minT = Math.floor(Math.min(...temps) - 4);
-      const maxT = Math.ceil(Math.max(...temps) + 4);
+      const minT = Math.floor(Math.min(...temps) - 2);
+      const maxT = Math.ceil(Math.max(...temps) + 2);
       const range = (maxT - minT) || 1;
 
       const chartWrapper = document.createElement("div");
@@ -174,8 +174,8 @@ function widgetHtml() {
       const points = [];
       daily.forEach((d, i) => {
         const x = (i / (daily.length - 1)) * 100;
-        // 描画範囲を 15〜85 に収めて、上下の余裕を確保
-        const y = 85 - ((d.temp_max_c - minT) / range * 70);
+        // 描画範囲を 10〜90 に広げて、高低差を強調
+        const y = 90 - ((d.temp_max_c - minT) / range * 80);
         points.push({x, y, temp: d.temp_max_c});
         pathData += (i === 0 ? "M" : " L") + x + "," + y;
       });
