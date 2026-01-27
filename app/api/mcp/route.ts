@@ -1,6 +1,53 @@
 import { createMcpHandler } from "mcp-handler";
 import { z } from "zod";
 
+// Configuration from environment variables
+const CONFIG = {
+  GEOCODING_API_URL:
+    process.env.NEXT_PUBLIC_GEOCODING_API_URL ??
+    "https://geocoding-api.open-meteo.com/v1/search",
+  FORECAST_API_URL:
+    process.env.NEXT_PUBLIC_FORECAST_API_URL ??
+    "https://api.open-meteo.com/v1/forecast",
+  REQUEST_TIMEOUT: parseInt(process.env.MCP_REQUEST_TIMEOUT ?? "30", 10) * 1000, // Convert to ms
+  RETRY_ATTEMPTS: parseInt(process.env.MCP_RETRY_ATTEMPTS ?? "3", 10),
+} as const;
+
+// Utility: Fetch with timeout
+async function fetchWithTimeout(url: string, options: RequestInit = {}) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), CONFIG.REQUEST_TIMEOUT);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    return response;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+// Utility: Retry logic for failed requests
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit = {},
+  retries = CONFIG.RETRY_ATTEMPTS
+): Promise<Response> {
+  try {
+    return await fetchWithTimeout(url, options);
+  } catch (error) {
+    if (retries > 0) {
+      // Exponential backoff: 100ms, 200ms, 400ms
+      const delay = 100 * Math.pow(2, CONFIG.RETRY_ATTEMPTS - retries);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      return fetchWithRetry(url, options, retries - 1);
+    }
+    throw error;
+  }
+}
+
 const WMO_JA: Record<number, string> = {
   0: "快晴",
   1: "ほぼ快晴",
@@ -38,47 +85,61 @@ type GeoCandidate = {
 };
 
 async function geocodeCandidates(place: string, count: number): Promise<GeoCandidate[]> {
-  const url = new URL("https://geocoding-api.open-meteo.com/v1/search");
-  url.searchParams.set("name", place);
-  url.searchParams.set("count", String(count));
-  url.searchParams.set("language", "ja");
-  url.searchParams.set("format", "json");
+  try {
+    const url = new URL(CONFIG.GEOCODING_API_URL);
+    url.searchParams.set("name", place);
+    url.searchParams.set("count", String(count));
+    url.searchParams.set("language", "ja");
+    url.searchParams.set("format", "json");
 
-  const r = await fetch(url);
-  if (!r.ok) throw new Error(`Geocoding failed: HTTP ${r.status}`);
-  const data: any = await r.json();
+    const r = await fetchWithRetry(url.toString());
+    if (!r.ok) {
+      throw new Error(`Geocoding API error: HTTP ${r.status}`);
+    }
+    const data: any = await r.json();
 
-  const results = (data?.results ?? []) as any[];
-  return results.map((hit) => ({
-    name: hit.name as string,
-    country: hit.country as string | undefined,
-    admin1: hit.admin1 as string | undefined,
-    latitude: hit.latitude as number,
-    longitude: hit.longitude as number,
-    timezone: hit.timezone as string | undefined,
-  }));
+    const results = (data?.results ?? []) as any[];
+    return results.map((hit) => ({
+      name: hit.name as string,
+      country: hit.country as string | undefined,
+      admin1: hit.admin1 as string | undefined,
+      latitude: hit.latitude as number,
+      longitude: hit.longitude as number,
+      timezone: hit.timezone as string | undefined,
+    }));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to fetch geocoding candidates: ${message}`);
+  }
 }
 
 async function forecastByCoords(lat: number, lon: number, days: number, timezone: string) {
-  const url = new URL("https://api.open-meteo.com/v1/forecast");
-  url.searchParams.set("latitude", String(lat));
-  url.searchParams.set("longitude", String(lon));
-  url.searchParams.set("timezone", timezone);
-  url.searchParams.set("current_weather", "true");
-  url.searchParams.set("forecast_days", String(days));
-  url.searchParams.set(
-    "daily",
-    [
-      "weathercode",
-      "temperature_2m_max",
-      "temperature_2m_min",
-      "precipitation_probability_max",
-    ].join(",")
-  );
+  try {
+    const url = new URL(CONFIG.FORECAST_API_URL);
+    url.searchParams.set("latitude", String(lat));
+    url.searchParams.set("longitude", String(lon));
+    url.searchParams.set("timezone", timezone);
+    url.searchParams.set("current_weather", "true");
+    url.searchParams.set("forecast_days", String(days));
+    url.searchParams.set(
+      "daily",
+      [
+        "weathercode",
+        "temperature_2m_max",
+        "temperature_2m_min",
+        "precipitation_probability_max",
+      ].join(",")
+    );
 
-  const r = await fetch(url);
-  if (!r.ok) throw new Error(`Forecast failed: HTTP ${r.status}`);
-  return (await r.json()) as any;
+    const r = await fetchWithRetry(url.toString());
+    if (!r.ok) {
+      throw new Error(`Forecast API error: HTTP ${r.status}`);
+    }
+    return (await r.json()) as any;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to fetch forecast data: ${message}`);
+  }
 }
 
 function widgetHtml() {

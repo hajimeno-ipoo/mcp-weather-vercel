@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // default
+  turbopack: {
+    root: './',
+  },
 };
 export default nextConfig;
