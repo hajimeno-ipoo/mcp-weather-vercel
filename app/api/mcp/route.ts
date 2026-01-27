@@ -460,11 +460,23 @@ function widgetHtml() {
   }
 
   function render(out) {
-    if (!out) return;
-    if (out.kind === "geocode" || out.candidates) return renderCandidates(out);
-    if (out.kind === "forecast" || out.daily) return renderForecast(out);
+    console.log("Widget render called with:", out);
+    if (!out) {
+      console.log("No output to render");
+      return;
+    }
+    if (out.kind === "geocode" || out.candidates) {
+      console.log("Rendering candidates");
+      return renderCandidates(out);
+    }
+    if (out.kind === "forecast" || out.daily) {
+      console.log("Rendering forecast");
+      return renderForecast(out);
+    }
+    console.log("Unknown output type, cannot render");
   }
 
+  console.log("Widget initialized. toolInput:", window.openai?.toolInput, "toolOutput:", window.openai?.toolOutput);
   render(window.openai?.toolOutput);
 
   btn.addEventListener("click", async () => {
@@ -528,7 +540,7 @@ const handler = createMcpHandler(
             mimeType: "text/html+skybridge",
             text: widgetHtml(),
             _meta: {
-              "openai/widgetDomain": "https://weather-widget.vercel.app",
+              "openai/widgetDomain": "weather-widget",
               "openai/widgetCSP": {
                 connect_domains: ["https://geocoding-api.open-meteo.com", "https://api.open-meteo.com"],
                 resource_domains: ["https://*.oaistatic.com"],
