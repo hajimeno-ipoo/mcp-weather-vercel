@@ -68,10 +68,10 @@ function widgetHtml() {
   .card { flex: 0 0 100px; padding: 12px; border: 1px solid rgba(0,0,0,.08); border-radius: 14px; text-align: center; background: rgba(255,255,255,0.3); transition: transform 0.2s; cursor: pointer; }
   .card.active { border-color: #ff922b; background: rgba(255,146,43,0.1); }
   .card:active { transform: scale(0.95); }
-  .chart-wrapper { margin: 25px 0 15px 0; background: rgba(0,0,0,0.02); border-radius: 12px; padding: 40px 20px 25px 20px; position: relative; }
+  .chart-wrapper { margin: 25px 0 15px 0; background: rgba(0,0,0,0.02); border-radius: 12px; padding: 40px 10px 25px 10px; position: relative; }
   .chart-y-axis { position: absolute; left: 8px; top: 40px; bottom: 65px; width: 32px; display: flex; flex-direction: column; justify-content: space-between; font-size: 8px; color: #666; text-align: right; padding-right: 6px; border-right: 1px solid rgba(0,0,0,0.15); }
-  .chart-area { margin-left: 40px; height: 160px; position: relative; }
-  .chart-x-axis { margin-left: 40px; display: flex; justify-content: space-between; margin-top: 15px; font-size: 8px; color: #666; }
+  .chart-area { margin-left: 40px; margin-right: 10px; height: 160px; position: relative; }
+  .chart-x-axis { margin-left: 40px; margin-right: 10px; display: grid; grid-template-columns: repeat(7, 1fr); margin-top: 15px; font-size: 8px; color: #666; }
   .detail-panel { margin-top: 12px; padding: 14px; border-radius: 12px; background: rgba(0,0,0,0.04); font-size: 13px; line-height: 1.6; display: none; }
   @media (prefers-color-scheme: dark) {
     body { color: #eee; }
@@ -80,6 +80,7 @@ function widgetHtml() {
     .card { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
     .chart-wrapper { background: rgba(255,255,255,0.03); }
     .chart-y-axis { border-color: rgba(255,255,255,0.2); color: #999; }
+    .chart-area { border-color: rgba(255,255,255,0.2); }
     .chart-x-axis { color: #999; }
     .detail-panel { background: rgba(255,255,255,0.05); }
   }
@@ -88,7 +89,7 @@ function widgetHtml() {
 <div class="container">
   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
     <div>
-      <div style="font-size:13px; opacity:0.6; margin-bottom:2px;">気温推移 (最高/最低)</div>
+      <div style="font-size:13px; opacity:0.6; margin-bottom:2px;">気温推移 (基準線: 0°C)</div>
       <div id="headline" style="font-size:20px; font-weight:700;">読み込み中...</div>
     </div>
     <button id="refresh" class="btn">更新</button>
@@ -139,16 +140,22 @@ function widgetHtml() {
       const maxTemps = daily.map(d => d.temp_max_c).filter(t => !isNaN(t));
       const minTemps = daily.map(d => d.temp_min_c).filter(t => !isNaN(t));
       const allTemps = [...maxTemps, ...minTemps];
-      const absMin = Math.floor(Math.min(...allTemps) - 2);
-      const absMax = Math.ceil(Math.max(...allTemps) + 2);
-      const range = (absMax - absMin) || 1;
+      
+      // 0度を基準にするためのスケール計算
+      const maxAbs = Math.max(...allTemps.map(Math.abs), 5); // 最小でも5度幅
+      const absLimit = Math.ceil(maxAbs + 2);
+      
+      // Y軸の範囲を [-absLimit, absLimit] に設定して 0度を中央(50%)にする
+      const minT = -absLimit;
+      const maxT = absLimit;
+      const range = maxT - minT;
 
       const chartWrapper = document.createElement("div");
       chartWrapper.className = "chart-wrapper";
 
       const yAxis = document.createElement("div");
       yAxis.className = "chart-y-axis";
-      yAxis.innerHTML = '<span>' + absMax + '°</span><span>' + Math.round((absMax+absMin)/2) + '°</span><span>' + absMin + '°</span>';
+      yAxis.innerHTML = '<span>' + maxT + '°</span><span>0°</span><span>' + minT + '°</span>';
       chartWrapper.appendChild(yAxis);
 
       const chartArea = document.createElement("div");
@@ -182,21 +189,20 @@ function widgetHtml() {
         const line = document.createElementNS(svgNS, "line");
         line.setAttribute("x1", "0"); line.setAttribute("y1", y);
         line.setAttribute("x2", "100"); line.setAttribute("y2", y);
-        line.setAttribute("stroke", "rgba(0,0,0,0.1)");
-        line.setAttribute("stroke-width", "0.2");
-        if (y === 50) {
-           line.setAttribute("stroke", "rgba(0,0,0,0.2)");
-           line.setAttribute("stroke-width", "0.5");
-        }
+        line.setAttribute("stroke", y === 50 ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.1)");
+        line.setAttribute("stroke-width", y === 50 ? "0.6" : "0.2");
         svg.appendChild(line);
       });
 
       const maxPoints = [];
       const minPoints = [];
+      const xStep = 100 / (daily.length);
+      const xOffset = xStep / 2; // 各グリッドセルの中心に配置
+
       daily.forEach((d, i) => {
-        const x = (i / (daily.length - 1)) * 100;
-        const yMax = 100 - ((d.temp_max_c - absMin) / range * 100);
-        const yMin = 100 - ((d.temp_min_c - absMin) / range * 100);
+        const x = xOffset + (i * xStep);
+        const yMax = 100 - ((d.temp_max_c - minT) / range * 100);
+        const yMin = 100 - ((d.temp_min_c - minT) / range * 100);
         maxPoints.push({x, y: yMax, temp: d.temp_max_c});
         minPoints.push({x, y: yMin, temp: d.temp_min_c});
       });
@@ -219,25 +225,16 @@ function widgetHtml() {
       areaMin.setAttribute("fill", "url(#gradMin)");
       svg.appendChild(areaMin);
 
-      // 折れ線 (最高)
-      let lineMaxPath = "M" + maxPoints[0].x + "," + maxPoints[0].y;
-      maxPoints.forEach((p, i) => { if(i>0) lineMaxPath += " L" + p.x + "," + p.y; });
-      const lineMax = document.createElementNS(svgNS, "path");
-      lineMax.setAttribute("d", lineMaxPath);
-      lineMax.setAttribute("fill", "none");
-      lineMax.setAttribute("stroke", "#ff922b");
-      lineMax.setAttribute("stroke-width", "0.8");
-      svg.appendChild(lineMax);
-
-      // 折れ線 (最低)
-      let lineMinPath = "M" + minPoints[0].x + "," + minPoints[0].y;
-      minPoints.forEach((p, i) => { if(i>0) lineMinPath += " L" + p.x + "," + p.y; });
-      const lineMin = document.createElementNS(svgNS, "path");
-      lineMin.setAttribute("d", lineMinPath);
-      lineMin.setAttribute("fill", "none");
-      lineMin.setAttribute("stroke", "#339af0");
-      lineMin.setAttribute("stroke-width", "0.8");
-      svg.appendChild(lineMin);
+      // 折れ線
+      const drawLine = (pts, color) => {
+        let d = "M" + pts[0].x + "," + pts[0].y;
+        pts.forEach((p, i) => { if(i>0) d += " L" + p.x + "," + p.y; });
+        const p = document.createElementNS(svgNS, "path");
+        p.setAttribute("d", d); p.setAttribute("fill", "none"); p.setAttribute("stroke", color); p.setAttribute("stroke-width", "0.8");
+        svg.appendChild(p);
+      };
+      drawLine(maxPoints, "#ff922b");
+      drawLine(minPoints, "#339af0");
 
       // ポイントと数値
       maxPoints.forEach(p => {
@@ -274,7 +271,6 @@ function widgetHtml() {
         const dateStr = d.date.split("-")[2];
         const span = document.createElement("span");
         span.style.textAlign = "center";
-        span.style.flex = "1";
         span.innerHTML = dateStr + "<br>(" + day + ")";
         xAxis.appendChild(span);
       });
