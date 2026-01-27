@@ -147,10 +147,14 @@ function widgetHtml() {
           const chartWrapper = document.createElement("div");
           chartWrapper.className = "chart-wrapper";
 
-          // Y軸ラベル
+          // Y軸ラベル (5度刻みで表示)
           const yAxis = document.createElement("div");
           yAxis.className = "chart-y-axis";
-          yAxis.innerHTML = '<span>30°</span><span>15°</span><span>0°</span><span>-15°</span>';
+          let yLabels = "";
+          for (let t = maxT; t >= minT; t -= 5) {
+            yLabels += '<span>' + t + '°</span>';
+          }
+          yAxis.innerHTML = yLabels;
           chartWrapper.appendChild(yAxis);
 
           const chartArea = document.createElement("div");
