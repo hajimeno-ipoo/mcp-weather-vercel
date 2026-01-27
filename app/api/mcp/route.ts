@@ -352,7 +352,6 @@ function widgetHtml() {
     periodSelector.style.display = "inline";
     clear();
 
-    // Debug: コンソールに出力
     console.log("renderForecast called", { days, dailyLength: daily.length, daily: daily });
 
     const now = out?.current;
@@ -363,15 +362,48 @@ function widgetHtml() {
       : "いま: -";
     panel.appendChild(nowDiv);
 
-    // 常に横スクロール対応のカード表示
+    // ASCII グラフ（気温折れ線）
+    if (daily.length > 0) {
+      const temps = daily.map(d => d.temp_max_c);
+      const minTemp = Math.floor(Math.min(...temps));
+      const maxTemp = Math.ceil(Math.max(...temps));
+      const range = maxTemp - minTemp || 1;
+      const height = 5;
+      const width = Math.min(daily.length, 20);
+
+      const graph = document.createElement("div");
+      graph.style.cssText = "font-family:monospace; font-size:11px; margin:10px 0; padding:8px; background:rgba(0,0,0,.03); border-radius:8px; overflow-x:auto;";
+      
+      // グラフ本体を描画
+      let graphText = "気温推移\n";
+      for (let row = 0; row < height; row++) {
+        const threshold = maxTemp - (row / height) * range;
+        let line = "";
+        for (let col = 0; col < width; col++) {
+          const t = temps[col];
+          line += (t >= threshold - range / height / 2) ? "█" : " ";
+        }
+        graphText += line + "\n";
+      }
+      // X軸ラベル
+      graphText += daily.slice(0, width).map(d => d.date.split("-")[2]).join("");
+      
+      graph.textContent = graphText;
+      panel.appendChild(graph);
+    }
+
+    // 常に横スクロール対応のカード表示（クリック可能に拡張）
     const scrollDiv = document.createElement("div");
     scrollDiv.style.cssText = "display:flex; gap:12px; overflow-x:auto; padding:8px 0; margin-top:8px; -webkit-overflow-scrolling: touch;";
-    daily.forEach((d) => {
+    
+    daily.forEach((d, idx) => {
       const card = document.createElement("div");
       card.className = "daily-card";
-      card.style.cssText = "flex-shrink:0; min-width:90px; padding:10px; border:1px solid rgba(0,0,0,.08); border-radius:10px; text-align:center; font-size:12px; background: rgba(0,0,0,.01);";
+      card.style.cssText = "flex-shrink:0; min-width:90px; padding:10px; border:1px solid rgba(0,0,0,.08); border-radius:10px; text-align:center; font-size:12px; background: rgba(0,0,0,.01); cursor:pointer; transition:all 0.2s;";
+      
       const dateStr = d.date ? d.date.split("-")[2] : "-";
       const dayOfWeek = ["日", "月", "火", "水", "木", "金", "土"][(new Date(d.date).getDay ? new Date(d.date).getDay() : 0)];
+      
       card.innerHTML = \`
         <div style="font-weight:600; margin-bottom:6px; font-size:13px;">\${dateStr}日</div>
         <div style="font-size:11px; color:#999; margin-bottom:4px;">(\${dayOfWeek})</div>
@@ -379,6 +411,45 @@ function widgetHtml() {
         <div style="margin:6px 0; font-weight:500; font-size:13px;">\${d.temp_min_c}〜\${d.temp_max_c}℃</div>
         <div style="font-size:11px; opacity:.8;">☔ \${d.precip_prob_max_percent}%</div>
       \`;
+      
+      // ホバー効果
+      card.addEventListener("mouseover", () => {
+        card.style.background = "rgba(0,0,0,.08)";
+        card.style.boxShadow = "0 2px 8px rgba(0,0,0,.1)";
+      });
+      card.addEventListener("mouseout", () => {
+        card.style.background = "rgba(0,0,0,.01)";
+        card.style.boxShadow = "none";
+      });
+      
+      // クリックで詳細情報展開
+      card.addEventListener("click", () => {
+        if (panel.querySelector(".detail-view")) {
+          panel.querySelector(".detail-view").remove();
+          return;
+        }
+        
+        const detail = document.createElement("div");
+        detail.className = "detail-view";
+        detail.style.cssText = "margin-top:12px; padding:12px; border:1px solid rgba(0,0,0,.1); border-radius:8px; background:rgba(0,0,0,.02); font-size:13px;";
+        
+        detail.innerHTML = \`
+          <div style="font-weight:600; margin-bottom:8px; font-size:14px;">\${dateStr}日 (\${dayOfWeek}) の詳細</div>
+          <div style="display:grid; gap:6px; line-height:1.6;">
+            <div>📅 日付: \${d.date}</div>
+            <div>🌤️ 天気: \${d.summary_ja}</div>
+            <div>🌡️ 気温: 最低 \${d.temp_min_c}℃ / 最高 \${d.temp_max_c}℃</div>
+            <div>☔ 降水確率: \${d.precip_prob_max_percent}%</div>
+            <div>💧 降水量: \${d.precip_sum_mm ?? 0}mm</div>
+            <div>💨 風速: \${d.windspeed_max_kmh ?? "-"}km/h</div>
+            <div>☀️ 日照時間: \${d.sunshine_duration_s ? (d.sunshine_duration_s / 3600).toFixed(1) : "-"}h</div>
+          </div>
+        \`;
+        
+        // 詳細をカードの下に挿入
+        card.parentNode.insertBefore(detail, card.nextSibling);
+      });
+      
       scrollDiv.appendChild(card);
     });
     panel.appendChild(scrollDiv);
