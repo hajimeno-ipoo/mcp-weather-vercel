@@ -1,46 +1,13 @@
 import { createMcpHandler } from "mcp-handler";
 import { z } from "zod";
-import type {
-  GeoCandidate,
-  OpenMeteoGeocodingResponse,
-  OpenMeteoForecastResponse,
-} from "./types";
-import { APIError, ValidationError } from "./types";
-import {
-  geocodeCache,
-  forecastCache,
-  generateGeocodeKey,
-  generateForecastKey,
-} from "./cache";
+import type { GeoCandidate, OpenMeteoGeocodingResponse, OpenMeteoForecastResponse } from "./types";
+import { APIError } from "./types";
+import { geocodeCache, forecastCache, generateGeocodeKey, generateForecastKey } from "./cache";
 
 const CONFIG = {
   GEOCODING_API_URL: process.env.NEXT_PUBLIC_GEOCODING_API_URL ?? "https://geocoding-api.open-meteo.com/v1/search",
   FORECAST_API_URL: process.env.NEXT_PUBLIC_FORECAST_API_URL ?? "https://api.open-meteo.com/v1/forecast",
-  REQUEST_TIMEOUT: parseInt(process.env.MCP_REQUEST_TIMEOUT ?? "30", 10) * 1000,
-  RETRY_ATTEMPTS: parseInt(process.env.MCP_RETRY_ATTEMPTS ?? "3", 10),
 } as const;
-
-async function fetchWithTimeout(url: string, options: RequestInit = {}) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), CONFIG.REQUEST_TIMEOUT);
-  try {
-    return await fetch(url, { ...options, signal: controller.signal });
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
-async function fetchWithRetry(url: string, options: RequestInit = {}, retries = CONFIG.RETRY_ATTEMPTS): Promise<Response> {
-  try {
-    return await fetchWithTimeout(url, options);
-  } catch (error) {
-    if (retries > 0) {
-      await new Promise((resolve) => setTimeout(resolve, 100 * Math.pow(2, CONFIG.RETRY_ATTEMPTS - retries)));
-      return fetchWithRetry(url, options, retries - 1);
-    }
-    throw error;
-  }
-}
 
 const WMO_JA: Record<number, string> = {
   0: "快晴", 1: "ほぼ快晴", 2: "晴れ時々くもり", 3: "くもり", 45: "霧", 48: "着氷性の霧",
@@ -57,14 +24,12 @@ async function geocodeCandidates(place: string, count: number): Promise<GeoCandi
   const cacheKey = generateGeocodeKey(place, count);
   const cached = geocodeCache.get(cacheKey);
   if (cached) return cached;
-
   const url = new URL(CONFIG.GEOCODING_API_URL);
   url.searchParams.set("name", place);
   url.searchParams.set("count", String(count));
   url.searchParams.set("language", "ja");
   url.searchParams.set("format", "json");
-
-  const r = await fetchWithRetry(url.toString());
+  const r = await fetch(url.toString());
   if (!r.ok) throw new APIError("GEO_ERR", `HTTP ${r.status}`);
   const data: OpenMeteoGeocodingResponse = await r.json();
   const candidates: GeoCandidate[] = (data?.results ?? []).map((hit: any) => ({
@@ -75,20 +40,18 @@ async function geocodeCandidates(place: string, count: number): Promise<GeoCandi
   return candidates;
 }
 
-async function forecastByCoords(lat: number, lon: number, days: number, timezone: string): Promise<OpenMeteoForecastResponse> {
-  const cacheKey = generateForecastKey(lat, lon, days, timezone);
+async function forecastByCoords(lat: number, lon: number, days: number): Promise<OpenMeteoForecastResponse> {
+  const cacheKey = generateForecastKey(lat, lon, days, "Asia/Tokyo");
   const cached = forecastCache.get(cacheKey);
   if (cached) return cached;
-
   const url = new URL(CONFIG.FORECAST_API_URL);
   url.searchParams.set("latitude", String(lat));
   url.searchParams.set("longitude", String(lon));
-  url.searchParams.set("timezone", timezone);
+  url.searchParams.set("timezone", "Asia/Tokyo");
   url.searchParams.set("current_weather", "true");
   url.searchParams.set("forecast_days", String(days));
   url.searchParams.set("daily", ["weathercode", "temperature_2m_max", "temperature_2m_min", "precipitation_probability_max"].join(","));
-
-  const r = await fetchWithRetry(url.toString());
+  const r = await fetch(url.toString());
   if (!r.ok) throw new APIError("FC_ERR", `HTTP ${r.status}`);
   const data: OpenMeteoForecastResponse = await r.json();
   forecastCache.set(cacheKey, data);
@@ -99,44 +62,32 @@ function widgetHtml() {
   return `
 <style>
   :root { color-scheme: light dark; }
-  body { font-family: ui-sans-serif, system-ui; padding: 10px; margin: 0; }
-  .container { border: 1px solid rgba(0,0,0,.1); border-radius: 12px; padding: 12px; background: rgba(0,0,0,.02); }
-  .btn { padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(0,0,0,.15); background: #fff; cursor: pointer; }
-  .card { flex-shrink: 0; min-width: 85px; padding: 8px; border: 1px solid rgba(0,0,0,.08); border-radius: 10px; text-align: center; background: #fff; }
+  body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 12px; background: transparent; }
+  .container { border: 1px solid rgba(0,0,0,.1); border-radius: 12px; padding: 14px; background: rgba(255,255,255,0.05); backdrop-filter: blur(10px); }
+  .btn { padding: 8px 16px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.1); background: #fff; color: #000; cursor: pointer; font-size: 14px; }
+  .card { flex: 0 0 90px; padding: 10px; border: 1px solid rgba(0,0,0,0.05); border-radius: 10px; text-align: center; background: rgba(255,255,255,0.1); }
   @media (prefers-color-scheme: dark) {
-    body { background: #1e1e1e; color: #eee; }
-    .container { background: #2d2d2d; border-color: #444; }
-    .btn { background: #444; color: #fff; border-color: #555; }
-    .card { background: #333; border-color: #444; }
+    .container { border-color: rgba(255,255,255,0.1); }
+    .btn { background: #333; color: #fff; border-color: rgba(255,255,255,0.1); }
+    .card { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
   }
 </style>
 
 <div class="container">
-  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-    <div id="headline" style="font-size:16px; font-weight:600;">読み込み中...</div>
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+    <div id="headline" style="font-size:18px; font-weight:700;">読み込み中...</div>
     <button id="refresh" class="btn">更新</button>
   </div>
   <div id="panel"></div>
-  <div id="debug" style="margin-top:10px; font-size:10px; color:#888; white-space:pre-wrap; display:none; border-top:1px dashed #ccc; padding-top:5px;"></div>
 </div>
 
 <script type="module">
   const headline = document.getElementById("headline");
   const panel = document.getElementById("panel");
-  const debug = document.getElementById("debug");
   const btn = document.getElementById("refresh");
 
-  function log(msg, obj) {
-    console.log(msg, obj);
-    debug.style.display = "block";
-    debug.textContent += msg + (obj ? ": " + JSON.stringify(obj).substring(0, 100) + "..." : "") + "\\n";
-  }
-
   function render(data) {
-    log("Rendering data", data);
     if (!data) return;
-    
-    // データの正規化（どんな階層でも探しに行く）
     const out = data.structuredContent || data;
     const candidates = out.candidates || [];
     const daily = out.daily || [];
@@ -144,9 +95,8 @@ function widgetHtml() {
 
     if (candidates.length > 0) {
       headline.textContent = (out.query || "場所") + "の候補";
-      panel.innerHTML = "";
-      const wrap = document.createElement("div");
-      wrap.style.cssText = "display:grid; gap:6px;";
+      panel.innerHTML = '<div id="list" style="display:grid; gap:8px;"></div>';
+      const list = panel.querySelector("#list");
       candidates.forEach(c => {
         const b = document.createElement("button");
         b.className = "btn";
@@ -154,62 +104,45 @@ function widgetHtml() {
         b.style.textAlign = "left";
         b.textContent = c.name + (c.admin1 ? " (" + c.admin1 + ")" : "");
         b.onclick = async () => {
-          log("Candidate clicked", c);
+          headline.textContent = "取得中...";
           const next = await window.openai.callTool("get_forecast", {
             latitude: c.latitude, longitude: c.longitude, days: 7, label: c.name
           });
           render(next);
         };
-        wrap.appendChild(b);
+        list.appendChild(b);
       });
-      panel.appendChild(wrap);
     } else if (daily.length > 0) {
-      headline.textContent = loc.label || loc.name || "天気予報";
-      panel.innerHTML = "";
-      const scroll = document.createElement("div");
-      scroll.style.cssText = "display:flex; gap:8px; overflow-x:auto; padding-bottom:5px;";
+      headline.textContent = loc.name || loc.label || "天気予報";
+      panel.innerHTML = '<div id="scroll" style="display:flex; gap:10px; overflow-x:auto; padding-bottom:8px;"></div>';
+      const scroll = panel.querySelector("#scroll");
       daily.forEach(d => {
         const c = document.createElement("div");
         c.className = "card";
         const date = d.date ? d.date.split("-")[2] : "-";
-        c.innerHTML = "<div>" + date + "日</div><div style='font-size:14px; margin:4px 0;'>" + d.summary_ja + "</div><div style='font-weight:600;'>" + d.temp_max_c + "℃</div>";
+        c.innerHTML = '<div style="font-size:12px; opacity:0.8;">' + date + '日</div>' +
+                      '<div style="font-size:16px; margin:6px 0;">' + d.summary_ja + '</div>' +
+                      '<div style="font-weight:700; font-size:15px;">' + d.temp_max_c + '°</div>';
         scroll.appendChild(c);
       });
-      panel.appendChild(scroll);
-    } else {
-      headline.textContent = "データ解析中...";
-      log("Data format not recognized", out);
     }
   }
 
-  async function start() {
-    log("Widget start");
-    let count = 0;
-    const check = setInterval(() => {
-      count++;
-      const out = window.openai?.toolOutput;
-      if (out) {
-        log("Data found at attempt " + count, out);
-        clearInterval(check);
-        render(out);
-      } else if (count > 20) {
-        log("Data not found after 20s");
-        headline.textContent = "データ待機中...";
-      }
-    }, 1000);
-  }
+  // データの監視
+  const init = () => {
+    const out = window.openai?.toolOutput;
+    if (out) render(out);
+    else setTimeout(init, 500);
+  };
+  init();
 
   btn.onclick = async () => {
-    log("Refresh clicked");
+    headline.textContent = "更新中...";
     const next = await window.openai.callTool("get_forecast", window.openai.toolInput);
     render(next);
   };
 
-  start();
-  window.addEventListener("openai:set_globals", () => {
-    log("Globals updated");
-    render(window.openai.toolOutput);
-  });
+  window.addEventListener("openai:set_globals", () => render(window.openai.toolOutput));
 </script>
 `.trim();
 }
@@ -248,8 +181,7 @@ const handler = createMcpHandler(
       _meta: { "openai/outputTemplate": "ui://widget/weather.html", "openai/widgetAccessible": true }
     }, async (input: any) => {
       const candidates = await geocodeCandidates(input.place, input.count);
-      const structuredContent = { kind: "geocode", query: input.place, candidates };
-      return { structuredContent, content: [{ type: "text", text: `検索結果: ${candidates.length}件` }] };
+      return { structuredContent: { kind: "geocode", query: input.place, candidates }, content: [{ type: "text", text: "候補を表示しました" }] };
     });
 
     server.registerTool("get_forecast", {
@@ -257,13 +189,12 @@ const handler = createMcpHandler(
       inputSchema: getForecastSchema,
       _meta: { "openai/outputTemplate": "ui://widget/weather.html", "openai/widgetAccessible": true }
     }, async (input: any) => {
-      const f = await forecastByCoords(input.latitude, input.longitude, input.days, "Asia/Tokyo");
+      const f = await forecastByCoords(input.latitude, input.longitude, input.days);
       const daily = (f.daily?.time ?? []).map((d, i) => ({
         date: d, summary_ja: wmoToJa(f.daily?.weathercode?.[i]),
         temp_max_c: f.daily?.temperature_2m_max?.[i], temp_min_c: f.daily?.temperature_2m_min?.[i],
       }));
-      const structuredContent = { kind: "forecast", location: { name: input.label }, daily };
-      return { structuredContent, content: [{ type: "text", text: "天気を取得しました" }] };
+      return { structuredContent: { kind: "forecast", location: { name: input.label }, daily }, content: [{ type: "text", text: "天気を取得しました" }] };
     });
   },
   {},
