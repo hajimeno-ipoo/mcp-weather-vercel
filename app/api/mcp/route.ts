@@ -363,33 +363,37 @@ function widgetHtml() {
     panel.appendChild(nowDiv);
 
     // ASCII グラフ（気温折れ線）
-    if (daily.length > 0) {
-      const temps = daily.map(d => d.temp_max_c);
-      const minTemp = Math.floor(Math.min(...temps));
-      const maxTemp = Math.ceil(Math.max(...temps));
-      const range = maxTemp - minTemp || 1;
-      const height = 5;
-      const width = Math.min(daily.length, 20);
+    try {
+      if (daily.length > 0) {
+        const temps = daily.map(d => d.temp_max_c).filter(t => typeof t === 'number' && !isNaN(t));
+        if (temps.length > 0) {
+          const minTemp = Math.floor(Math.min(...temps));
+          const maxTemp = Math.ceil(Math.max(...temps));
+          const range = maxTemp - minTemp || 1;
+          const height = 5;
+          const width = Math.min(daily.length, 20);
 
-      const graph = document.createElement("div");
-      graph.style.cssText = "font-family:monospace; font-size:11px; margin:10px 0; padding:8px; background:rgba(0,0,0,.03); border-radius:8px; overflow-x:auto;";
-      
-      // グラフ本体を描画
-      let graphText = "気温推移\n";
-      for (let row = 0; row < height; row++) {
-        const threshold = maxTemp - (row / height) * range;
-        let line = "";
-        for (let col = 0; col < width; col++) {
-          const t = temps[col];
-          line += (t >= threshold - range / height / 2) ? "█" : " ";
+          const graph = document.createElement("div");
+          graph.style.cssText = "font-family:monospace; font-size:11px; margin:10px 0; padding:8px; background:rgba(0,0,0,.03); border-radius:8px; overflow-x:auto;";
+          
+          let graphText = "気温推移\n";
+          for (let row = 0; row < height; row++) {
+            const threshold = maxTemp - (row / height) * range;
+            let line = "";
+            for (let col = 0; col < width; col++) {
+              const t = temps[col];
+              line += (t >= threshold - range / height / 2) ? "█" : " ";
+            }
+            graphText += line + "\n";
+          }
+          graphText += daily.slice(0, width).map(d => d.date ? d.date.split("-")[2] : "").join("");
+          
+          graph.textContent = graphText;
+          panel.appendChild(graph);
         }
-        graphText += line + "\n";
       }
-      // X軸ラベル
-      graphText += daily.slice(0, width).map(d => d.date.split("-")[2]).join("");
-      
-      graph.textContent = graphText;
-      panel.appendChild(graph);
+    } catch (e) {
+      console.error("Graph rendering failed", e);
     }
 
     // 常に横スクロール対応のカード表示（クリック可能に拡張）
