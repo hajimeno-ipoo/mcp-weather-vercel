@@ -261,7 +261,7 @@ function widgetHtml() {
     </div>
 
     <div id="period-selector" style="display:none; font-size:12px; margin-bottom:8px; opacity:.8;">
-      📅 表示期間: <span id="days-display">3日</span>
+      📅 表示期間: <span id="days-display">7日</span>
     </div>
 
     <div id="panel" style="margin-top: 10px;"></div>
@@ -443,7 +443,7 @@ const handler = createMcpHandler(
     server.registerResource(
       "weather-widget",
       "ui://widget/weather.html",
-      {},
+      {} as any,
       async () => ({
         contents: [
           {
