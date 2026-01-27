@@ -107,10 +107,23 @@ function widgetHtml() {
   let lastValidInput = null;
 
   function render(data) {
-    // 最新の入力を保存（更新ボタン用）
-    if (window.openai?.toolInput?.latitude) {
-      lastValidInput = window.openai.toolInput;
-    }
+    // データの構造から緯度・経度を抽出して保存（更新ボタン用）
+    try {
+      const out = data?.structuredContent || data;
+      // get_forecast の結果から位置情報を保存
+      if (out?.location?.latitude && out?.location?.longitude) {
+        lastValidInput = {
+          latitude: out.location.latitude,
+          longitude: out.location.longitude,
+          label: out.location.name || out.location.label
+        };
+      } 
+      // toolInput が利用可能な場合も上書き保存
+      else if (window.openai?.toolInput?.latitude) {
+        lastValidInput = window.openai.toolInput;
+      }
+    } catch(e) { console.error("Input save error:", e); }
+
     try {
       if (!data) return;
       const out = data.structuredContent || data;
@@ -427,7 +440,18 @@ const handler = createMcpHandler(
         precip_prob_max_percent: f.daily?.precipitation_probability_max?.[i],
         precip_sum_mm: f.daily?.precipitation_sum?.[i], windspeed_max_kmh: f.daily?.windspeed_10m_max?.[i],
       }));
-      return { structuredContent: { kind: "forecast", location: { name: input.label }, daily }, content: [{ type: "text", text: "天気を取得しました" }] };
+      return { 
+        structuredContent: { 
+          kind: "forecast", 
+          location: { 
+            name: input.label, 
+            latitude: input.latitude, 
+            longitude: input.longitude 
+          }, 
+          daily 
+        }, 
+        content: [{ type: "text", text: "天気を取得しました" }] 
+      };
     });
   },
   {},
