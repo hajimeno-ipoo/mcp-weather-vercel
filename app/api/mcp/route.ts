@@ -67,14 +67,19 @@ function widgetHtml() {
   .btn { padding: 8px 14px; border-radius: 10px; border: 1px solid rgba(0,0,0,.15); background: #fff; color: #000; cursor: pointer; font-size: 14px; font-weight: 500; }
   .card { flex: 0 0 100px; padding: 12px; border: 1px solid rgba(0,0,0,.08); border-radius: 14px; text-align: center; background: rgba(255,255,255,0.3); transition: transform 0.2s; cursor: pointer; }
   .card:active { transform: scale(0.95); }
-  .chart-container { margin: 16px 0; display: flex; align-items: flex-end; gap: 4px; height: 60px; padding: 0 4px; }
-  .chart-bar { flex: 1; background: linear-gradient(to top, #4dabf7, #ff922b); border-radius: 4px 4px 2px 2px; position: relative; min-height: 4px; }
+  .chart-wrapper { margin: 20px 0; background: rgba(0,0,0,0.02); border-radius: 12px; padding: 15px 10px 10px 10px; position: relative; }
+  .chart-y-axis { position: absolute; left: 5px; top: 15px; bottom: 35px; width: 30px; display: flex; flex-direction: column; justify-content: space-between; font-size: 10px; color: #888; text-align: right; padding-right: 5px; border-right: 1px solid rgba(0,0,0,0.05); }
+  .chart-area { margin-left: 35px; height: 100px; position: relative; }
+  .chart-x-axis { margin-left: 35px; display: flex; justify-content: space-between; margin-top: 5px; font-size: 11px; color: #666; }
   .detail-panel { margin-top: 12px; padding: 14px; border-radius: 12px; background: rgba(0,0,0,0.04); font-size: 13px; line-height: 1.6; display: none; }
   @media (prefers-color-scheme: dark) {
     body { color: #eee; }
     .container { border-color: rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); }
     .btn { background: #444; color: #fff; border-color: rgba(255,255,255,0.1); }
     .card { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
+    .chart-wrapper { background: rgba(255,255,255,0.03); }
+    .chart-y-axis { border-color: rgba(255,255,255,0.1); color: #aaa; }
+    .chart-x-axis { color: #aaa; }
     .detail-panel { background: rgba(255,255,255,0.05); }
   }
 </style>
@@ -82,7 +87,7 @@ function widgetHtml() {
 <div class="container">
   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
     <div>
-      <div style="font-size:13px; opacity:0.6; margin-bottom:2px;">天気予報</div>
+      <div style="font-size:13px; opacity:0.6; margin-bottom:2px;">気温推移</div>
       <div id="headline" style="font-size:20px; font-weight:700;">読み込み中...</div>
     </div>
     <button id="refresh" class="btn">更新</button>
@@ -128,23 +133,88 @@ function widgetHtml() {
       headline.textContent = loc.name || loc.label || "天気予報";
       panel.innerHTML = "";
 
-      // ビジュアルグラフ
+      // SVG折れ線グラフの構築
       const temps = daily.map(d => d.temp_max_c).filter(t => !isNaN(t));
-      const minT = Math.min(...temps);
-      const maxT = Math.max(...temps);
+      const minT = Math.floor(Math.min(...temps) - 2);
+      const maxT = Math.ceil(Math.max(...temps) + 2);
       const range = (maxT - minT) || 1;
 
-      const chart = document.createElement("div");
-      chart.className = "chart-container";
-      daily.forEach(d => {
-        const bar = document.createElement("div");
-        bar.className = "chart-bar";
-        const height = ((d.temp_max_c - minT) / range * 80) + 20;
-        bar.style.height = height + "%";
-        bar.title = d.temp_max_c + "°";
-        chart.appendChild(bar);
+      const chartWrapper = document.createElement("div");
+      chartWrapper.className = "chart-wrapper";
+
+      // Y軸ラベル
+      const yAxis = document.createElement("div");
+      yAxis.className = "chart-y-axis";
+      yAxis.innerHTML = '<span>' + maxT + '°</span><span>' + Math.round((maxT+minT)/2) + '°</span><span>' + minT + '°</span>';
+      chartWrapper.appendChild(yAxis);
+
+      // グラフエリア (SVG)
+      const chartArea = document.createElement("div");
+      chartArea.className = "chart-area";
+      
+      const svgNS = "http://www.w3.org/2000/svg";
+      const svg = document.createElementNS(svgNS, "svg");
+      svg.setAttribute("width", "100%");
+      svg.setAttribute("height", "100%");
+      svg.setAttribute("viewBox", "0 0 100 100");
+      svg.setAttribute("preserveAspectRatio", "none");
+      svg.style.overflow = "visible";
+
+      // 背景のグリッド線
+      [0, 50, 100].forEach(y => {
+        const line = document.createElementNS(svgNS, "line");
+        line.setAttribute("x1", "0"); line.setAttribute("y1", y);
+        line.setAttribute("x2", "100"); line.setAttribute("y2", y);
+        line.setAttribute("stroke", "rgba(0,0,0,0.05)");
+        line.setAttribute("stroke-width", "0.5");
+        svg.appendChild(line);
       });
-      panel.appendChild(chart);
+
+      // 折れ線のパス計算
+      let pathData = "";
+      const points = [];
+      daily.forEach((d, i) => {
+        const x = (i / (daily.length - 1)) * 100;
+        const y = 100 - ((d.temp_max_c - minT) / range * 100);
+        points.push({x, y, temp: d.temp_max_c});
+        pathData += (i === 0 ? "M" : " L") + x + "," + y;
+      });
+
+      const path = document.createElementNS(svgNS, "path");
+      path.setAttribute("d", pathData);
+      path.setAttribute("fill", "none");
+      path.setAttribute("stroke", "#ff922b");
+      path.setAttribute("stroke-width", "2");
+      path.setAttribute("stroke-linejoin", "round");
+      svg.appendChild(path);
+
+      // 各地点のドット
+      points.forEach(p => {
+        const circle = document.createElementNS(svgNS, "circle");
+        circle.setAttribute("cx", p.x);
+        circle.setAttribute("cy", p.y);
+        circle.setAttribute("r", "1.5");
+        circle.setAttribute("fill", "#fff");
+        circle.setAttribute("stroke", "#ff922b");
+        circle.setAttribute("stroke-width", "1");
+        svg.appendChild(circle);
+      });
+
+      chartArea.appendChild(svg);
+      chartWrapper.appendChild(chartArea);
+
+      // X軸ラベル (曜日)
+      const xAxis = document.createElement("div");
+      xAxis.className = "chart-x-axis";
+      daily.forEach(d => {
+        const day = ["日","月","火","水","木","金","土"][new Date(d.date).getDay()];
+        const span = document.createElement("span");
+        span.textContent = day;
+        xAxis.appendChild(span);
+      });
+      chartWrapper.appendChild(xAxis);
+
+      panel.appendChild(chartWrapper);
 
       // スクロールカード
       const scroll = document.createElement("div");
