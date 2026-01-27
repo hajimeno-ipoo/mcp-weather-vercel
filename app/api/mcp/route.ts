@@ -1,5 +1,24 @@
 import { createMcpHandler } from "mcp-handler";
 import { z } from "zod";
+import type {
+  GeoCandidate,
+  GeocodingResult,
+  ForecastResult,
+  CurrentWeather,
+  DailyForecast,
+  ToolResponse,
+  APIError as APIErrorType,
+  OpenMeteoGeocodingResponse,
+  OpenMeteoForecastResponse,
+} from "./types";
+import { APIError, ValidationError } from "./types";
+import {
+  geocodeCache,
+  forecastCache,
+  generateGeocodeKey,
+  generateForecastKey,
+  cleanupCaches,
+} from "./cache";
 
 // Configuration from environment variables
 const CONFIG = {
@@ -75,16 +94,22 @@ function wmoToJa(code: number | null | undefined) {
   return WMO_JA[code] ?? `不明（code=${code}）`;
 }
 
-type GeoCandidate = {
-  name: string;
-  country?: string;
-  admin1?: string;
-  latitude: number;
-  longitude: number;
-  timezone?: string;
-};
+async function geocodeCandidates(
+  place: string,
+  count: number
+): Promise<GeoCandidate[]> {
+  if (!place || place.trim().length === 0) {
+    throw new ValidationError("place", "Place name cannot be empty");
+  }
 
-async function geocodeCandidates(place: string, count: number): Promise<GeoCandidate[]> {
+  const cacheKey = generateGeocodeKey(place, count);
+
+  // Check cache first
+  const cachedResult = geocodeCache.get(cacheKey);
+  if (cachedResult) {
+    return cachedResult;
+  }
+
   try {
     const url = new URL(CONFIG.GEOCODING_API_URL);
     url.searchParams.set("name", place);
@@ -94,12 +119,18 @@ async function geocodeCandidates(place: string, count: number): Promise<GeoCandi
 
     const r = await fetchWithRetry(url.toString());
     if (!r.ok) {
-      throw new Error(`Geocoding API error: HTTP ${r.status}`);
+      throw new APIError(
+        "GEOCODING_API_ERROR",
+        `Geocoding API error: HTTP ${r.status}`,
+        r.status,
+        r.status >= 500
+      );
     }
-    const data: any = await r.json();
 
+    const data: OpenMeteoGeocodingResponse = await r.json();
     const results = (data?.results ?? []) as any[];
-    return results.map((hit) => ({
+
+    const candidates: GeoCandidate[] = results.map((hit) => ({
       name: hit.name as string,
       country: hit.country as string | undefined,
       admin1: hit.admin1 as string | undefined,
@@ -107,13 +138,47 @@ async function geocodeCandidates(place: string, count: number): Promise<GeoCandi
       longitude: hit.longitude as number,
       timezone: hit.timezone as string | undefined,
     }));
+
+    // Cache the result (24 hours for geocoding)
+    geocodeCache.set(cacheKey, candidates);
+
+    return candidates;
   } catch (error) {
+    if (error instanceof APIError || error instanceof ValidationError) {
+      throw error;
+    }
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to fetch geocoding candidates: ${message}`);
+    throw new APIError(
+      "GEOCODING_FETCH_ERROR",
+      `Failed to fetch geocoding candidates: ${message}`,
+      undefined,
+      true
+    );
   }
 }
 
-async function forecastByCoords(lat: number, lon: number, days: number, timezone: string) {
+async function forecastByCoords(
+  lat: number,
+  lon: number,
+  days: number,
+  timezone: string
+): Promise<OpenMeteoForecastResponse> {
+  // Validate inputs
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+    throw new ValidationError(
+      "coordinates",
+      "Latitude and longitude must be valid numbers"
+    );
+  }
+
+  const cacheKey = generateForecastKey(lat, lon, days, timezone);
+
+  // Check cache first
+  const cachedResult = forecastCache.get(cacheKey);
+  if (cachedResult) {
+    return cachedResult;
+  }
+
   try {
     const url = new URL(CONFIG.FORECAST_API_URL);
     url.searchParams.set("latitude", String(lat));
@@ -133,12 +198,31 @@ async function forecastByCoords(lat: number, lon: number, days: number, timezone
 
     const r = await fetchWithRetry(url.toString());
     if (!r.ok) {
-      throw new Error(`Forecast API error: HTTP ${r.status}`);
+      throw new APIError(
+        "FORECAST_API_ERROR",
+        `Forecast API error: HTTP ${r.status}`,
+        r.status,
+        r.status >= 500
+      );
     }
-    return (await r.json()) as any;
+
+    const data: OpenMeteoForecastResponse = await r.json();
+
+    // Cache the result (1 hour for forecast data)
+    forecastCache.set(cacheKey, data);
+
+    return data;
   } catch (error) {
+    if (error instanceof APIError || error instanceof ValidationError) {
+      throw error;
+    }
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to fetch forecast data: ${message}`);
+    throw new APIError(
+      "FORECAST_FETCH_ERROR",
+      `Failed to fetch forecast data: ${message}`,
+      undefined,
+      true
+    );
   }
 }
 
