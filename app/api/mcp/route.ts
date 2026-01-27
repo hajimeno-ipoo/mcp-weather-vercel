@@ -68,10 +68,10 @@ function widgetHtml() {
   .card { flex: 0 0 100px; padding: 12px; border: 1px solid rgba(0,0,0,.08); border-radius: 14px; text-align: center; background: rgba(255,255,255,0.3); transition: transform 0.2s; cursor: pointer; }
   .card.active { border-color: #ff922b; background: rgba(255,146,43,0.1); }
   .card:active { transform: scale(0.95); }
-  .chart-wrapper { margin: 25px 0 15px 0; background: rgba(0,0,0,0.02); border-radius: 12px; padding: 35px 20px 20px 20px; position: relative; }
-  .chart-y-axis { position: absolute; left: 8px; top: 35px; bottom: 60px; width: 32px; display: flex; flex-direction: column; justify-content: space-between; font-size: 8px; color: #666; text-align: right; padding-right: 6px; border-right: 1px solid rgba(0,0,0,0.15); }
-  .chart-area { margin-left: 40px; height: 150px; position: relative; border-bottom: 1px solid rgba(0,0,0,0.15); }
-  .chart-x-axis { margin-left: 40px; display: flex; justify-content: space-between; margin-top: 12px; font-size: 8px; color: #666; }
+  .chart-wrapper { margin: 25px 0 15px 0; background: rgba(0,0,0,0.02); border-radius: 12px; padding: 40px 20px 25px 20px; position: relative; }
+  .chart-y-axis { position: absolute; left: 8px; top: 40px; bottom: 65px; width: 32px; display: flex; flex-direction: column; justify-content: space-between; font-size: 8px; color: #666; text-align: right; padding-right: 6px; border-right: 1px solid rgba(0,0,0,0.15); }
+  .chart-area { margin-left: 40px; height: 160px; position: relative; }
+  .chart-x-axis { margin-left: 40px; display: flex; justify-content: space-between; margin-top: 15px; font-size: 8px; color: #666; }
   .detail-panel { margin-top: 12px; padding: 14px; border-radius: 12px; background: rgba(0,0,0,0.04); font-size: 13px; line-height: 1.6; display: none; }
   @media (prefers-color-scheme: dark) {
     body { color: #eee; }
@@ -80,7 +80,6 @@ function widgetHtml() {
     .card { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
     .chart-wrapper { background: rgba(255,255,255,0.03); }
     .chart-y-axis { border-color: rgba(255,255,255,0.2); color: #999; }
-    .chart-area { border-color: rgba(255,255,255,0.2); }
     .chart-x-axis { color: #999; }
     .detail-panel { background: rgba(255,255,255,0.05); }
   }
@@ -89,7 +88,7 @@ function widgetHtml() {
 <div class="container">
   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
     <div>
-      <div style="font-size:13px; opacity:0.6; margin-bottom:2px;">気温推移</div>
+      <div style="font-size:13px; opacity:0.6; margin-bottom:2px;">気温推移 (最高/最低)</div>
       <div id="headline" style="font-size:20px; font-weight:700;">読み込み中...</div>
     </div>
     <button id="refresh" class="btn">更新</button>
@@ -137,17 +136,19 @@ function widgetHtml() {
       headline.textContent = loc.name || loc.label || "天気予報";
       panel.innerHTML = "";
 
-      const temps = daily.map(d => d.temp_max_c).filter(t => !isNaN(t));
-      const minT = Math.floor(Math.min(...temps) - 2);
-      const maxT = Math.ceil(Math.max(...temps) + 2);
-      const range = (maxT - minT) || 1;
+      const maxTemps = daily.map(d => d.temp_max_c).filter(t => !isNaN(t));
+      const minTemps = daily.map(d => d.temp_min_c).filter(t => !isNaN(t));
+      const allTemps = [...maxTemps, ...minTemps];
+      const absMin = Math.floor(Math.min(...allTemps) - 2);
+      const absMax = Math.ceil(Math.max(...allTemps) + 2);
+      const range = (absMax - absMin) || 1;
 
       const chartWrapper = document.createElement("div");
       chartWrapper.className = "chart-wrapper";
 
       const yAxis = document.createElement("div");
       yAxis.className = "chart-y-axis";
-      yAxis.innerHTML = '<span>' + maxT + '°</span><span>' + Math.round((maxT+minT)/2) + '°</span><span>' + minT + '°</span>';
+      yAxis.innerHTML = '<span>' + absMax + '°</span><span>' + Math.round((absMax+absMin)/2) + '°</span><span>' + absMin + '°</span>';
       chartWrapper.appendChild(yAxis);
 
       const chartArea = document.createElement("div");
@@ -161,54 +162,105 @@ function widgetHtml() {
       svg.setAttribute("preserveAspectRatio", "none");
       svg.style.overflow = "visible";
 
+      // グラデーション定義
+      const defs = document.createElementNS(svgNS, "defs");
+      const gradMax = document.createElementNS(svgNS, "linearGradient");
+      gradMax.setAttribute("id", "gradMax");
+      gradMax.setAttribute("x1", "0%"); gradMax.setAttribute("y1", "0%"); gradMax.setAttribute("x2", "0%"); gradMax.setAttribute("y2", "100%");
+      gradMax.innerHTML = '<stop offset="0%" style="stop-color:#ff922b;stop-opacity:0.6" /><stop offset="100%" style="stop-color:#ff922b;stop-opacity:0" />';
+      defs.appendChild(gradMax);
+
+      const gradMin = document.createElementNS(svgNS, "linearGradient");
+      gradMin.setAttribute("id", "gradMin");
+      gradMin.setAttribute("x1", "0%"); gradMin.setAttribute("y1", "100%"); gradMin.setAttribute("x2", "0%"); gradMin.setAttribute("y2", "0%");
+      gradMin.innerHTML = '<stop offset="0%" style="stop-color:#339af0;stop-opacity:0.6" /><stop offset="100%" style="stop-color:#339af0;stop-opacity:0" />';
+      defs.appendChild(gradMin);
+      svg.appendChild(defs);
+
+      // グリッド線
       [0, 50, 100].forEach(y => {
         const line = document.createElementNS(svgNS, "line");
         line.setAttribute("x1", "0"); line.setAttribute("y1", y);
         line.setAttribute("x2", "100"); line.setAttribute("y2", y);
-        line.setAttribute("stroke", "rgba(0,0,0,0.08)");
+        line.setAttribute("stroke", "rgba(0,0,0,0.1)");
         line.setAttribute("stroke-width", "0.2");
+        if (y === 50) {
+           line.setAttribute("stroke", "rgba(0,0,0,0.2)");
+           line.setAttribute("stroke-width", "0.5");
+        }
         svg.appendChild(line);
       });
 
-      let pathData = "";
-      const points = [];
+      const maxPoints = [];
+      const minPoints = [];
       daily.forEach((d, i) => {
         const x = (i / (daily.length - 1)) * 100;
-        // 描画範囲を 10〜90 に広げて、高低差を強調
-        const y = 90 - ((d.temp_max_c - minT) / range * 80);
-        points.push({x, y, temp: d.temp_max_c});
-        pathData += (i === 0 ? "M" : " L") + x + "," + y;
+        const yMax = 100 - ((d.temp_max_c - absMin) / range * 100);
+        const yMin = 100 - ((d.temp_min_c - absMin) / range * 100);
+        maxPoints.push({x, y: yMax, temp: d.temp_max_c});
+        minPoints.push({x, y: yMin, temp: d.temp_min_c});
       });
 
-      const path = document.createElementNS(svgNS, "path");
-      path.setAttribute("d", pathData);
-      path.setAttribute("fill", "none");
-      path.setAttribute("stroke", "#ff922b");
-      path.setAttribute("stroke-width", "1.0");
-      path.setAttribute("stroke-linejoin", "round");
-      path.setAttribute("stroke-linecap", "round");
-      svg.appendChild(path);
+      // 最高気温エリア
+      let maxPath = "M" + maxPoints[0].x + ",50";
+      maxPoints.forEach(p => maxPath += " L" + p.x + "," + p.y);
+      maxPath += " L" + maxPoints[maxPoints.length-1].x + ",50 Z";
+      const areaMax = document.createElementNS(svgNS, "path");
+      areaMax.setAttribute("d", maxPath);
+      areaMax.setAttribute("fill", "url(#gradMax)");
+      svg.appendChild(areaMax);
 
-      points.forEach(p => {
-        const circle = document.createElementNS(svgNS, "circle");
-        circle.setAttribute("cx", p.x);
-        circle.setAttribute("cy", p.y);
-        circle.setAttribute("r", "1.2");
-        circle.setAttribute("fill", "#fff");
-        circle.setAttribute("stroke", "#ff922b");
-        circle.setAttribute("stroke-width", "0.8");
-        svg.appendChild(circle);
+      // 最低気温エリア
+      let minPath = "M" + minPoints[0].x + ",50";
+      minPoints.forEach(p => minPath += " L" + p.x + "," + p.y);
+      minPath += " L" + minPoints[minPoints.length-1].x + ",50 Z";
+      const areaMin = document.createElementNS(svgNS, "path");
+      areaMin.setAttribute("d", minPath);
+      areaMin.setAttribute("fill", "url(#gradMin)");
+      svg.appendChild(areaMin);
 
-        const text = document.createElementNS(svgNS, "text");
-        text.setAttribute("x", p.x);
-        text.setAttribute("y", p.y - 6);
-        text.setAttribute("text-anchor", "middle");
-        text.setAttribute("font-size", "6");
-        text.setAttribute("fill", "#ff922b");
-        text.setAttribute("font-weight", "500");
-        text.style.fontFamily = "sans-serif";
-        text.textContent = p.temp + "°";
-        svg.appendChild(text);
+      // 折れ線 (最高)
+      let lineMaxPath = "M" + maxPoints[0].x + "," + maxPoints[0].y;
+      maxPoints.forEach((p, i) => { if(i>0) lineMaxPath += " L" + p.x + "," + p.y; });
+      const lineMax = document.createElementNS(svgNS, "path");
+      lineMax.setAttribute("d", lineMaxPath);
+      lineMax.setAttribute("fill", "none");
+      lineMax.setAttribute("stroke", "#ff922b");
+      lineMax.setAttribute("stroke-width", "0.8");
+      svg.appendChild(lineMax);
+
+      // 折れ線 (最低)
+      let lineMinPath = "M" + minPoints[0].x + "," + minPoints[0].y;
+      minPoints.forEach((p, i) => { if(i>0) lineMinPath += " L" + p.x + "," + p.y; });
+      const lineMin = document.createElementNS(svgNS, "path");
+      lineMin.setAttribute("d", lineMinPath);
+      lineMin.setAttribute("fill", "none");
+      lineMin.setAttribute("stroke", "#339af0");
+      lineMin.setAttribute("stroke-width", "0.8");
+      svg.appendChild(lineMin);
+
+      // ポイントと数値
+      maxPoints.forEach(p => {
+        const c = document.createElementNS(svgNS, "circle");
+        c.setAttribute("cx", p.x); c.setAttribute("cy", p.y); c.setAttribute("r", "1");
+        c.setAttribute("fill", "#fff"); c.setAttribute("stroke", "#ff922b"); c.setAttribute("stroke-width", "0.5");
+        svg.appendChild(c);
+        const t = document.createElementNS(svgNS, "text");
+        t.setAttribute("x", p.x); t.setAttribute("y", p.y - 4); t.setAttribute("text-anchor", "middle");
+        t.setAttribute("font-size", "5"); t.setAttribute("fill", "#ff922b"); t.setAttribute("font-weight", "600");
+        t.textContent = p.temp + "°";
+        svg.appendChild(t);
+      });
+      minPoints.forEach(p => {
+        const c = document.createElementNS(svgNS, "circle");
+        c.setAttribute("cx", p.x); c.setAttribute("cy", p.y); c.setAttribute("r", "1");
+        c.setAttribute("fill", "#fff"); c.setAttribute("stroke", "#339af0"); c.setAttribute("stroke-width", "0.5");
+        svg.appendChild(c);
+        const t = document.createElementNS(svgNS, "text");
+        t.setAttribute("x", p.x); t.setAttribute("y", p.y + 8); t.setAttribute("text-anchor", "middle");
+        t.setAttribute("font-size", "5"); t.setAttribute("fill", "#339af0"); t.setAttribute("font-weight", "600");
+        t.textContent = p.temp + "°";
+        svg.appendChild(t);
       });
 
       chartArea.appendChild(svg);
@@ -239,7 +291,7 @@ function widgetHtml() {
         const day = ["日","月","火","水","木","金","土"][new Date(d.date).getDay()];
         c.innerHTML = '<div style="font-size:11px; opacity:0.6;">' + date + ' (' + day + ')</div>' +
                       '<div style="font-size:18px; margin:8px 0;">' + d.summary_ja + '</div>' +
-                      '<div style="font-weight:700; font-size:16px;">' + d.temp_max_c + '°</div>' +
+                      '<div style="font-weight:700; font-size:16px;">' + d.temp_max_c + '° / ' + d.temp_min_c + '°</div>' +
                       '<div style="font-size:10px; margin-top:4px; opacity:0.7;">☔ ' + d.precip_prob_max_percent + '%</div>';
         
         c.onclick = () => {
