@@ -104,8 +104,13 @@ function widgetHtml() {
   const btn = document.getElementById("refresh");
 
   let activeDate = null;
+  let lastValidInput = null;
 
   function render(data) {
+    // 最新の入力を保存（更新ボタン用）
+    if (window.openai?.toolInput?.latitude) {
+      lastValidInput = window.openai.toolInput;
+    }
     try {
       if (!data) return;
       const out = data.structuredContent || data;
@@ -338,22 +343,33 @@ function widgetHtml() {
     const originalText = headline.textContent;
     try {
       headline.textContent = "更新中...";
-      // toolInput が存在しない場合や不完全な場合のフォールバック
-      const input = window.openai.toolInput || {};
-      if (!input.latitude || !input.longitude) {
-        throw new Error("位置情報が見つかりません");
+      
+      // 保存された入力、または現在の入力を優先順位をつけて取得
+      const input = lastValidInput || window.openai?.toolInput;
+      
+      console.log("Updating with input:", input);
+      
+      if (!input || !input.latitude || !input.longitude) {
+        throw new Error("位置情報が特定できません");
       }
       
-      const next = await window.openai.callTool("get_forecast", input);
+      const next = await window.openai.callTool("get_forecast", {
+        latitude: input.latitude,
+        longitude: input.longitude,
+        days: input.days || 7,
+        label: input.label
+      });
+      
       if (next) {
+        console.log("Update success");
         render(next);
       } else {
-        throw new Error("データの取得に失敗しました");
+        throw new Error("レスポンスが空です");
       }
     } catch (e) {
-      console.error("Update error:", e);
-      headline.textContent = "更新失敗: " + originalText;
-      setTimeout(() => { headline.textContent = originalText; }, 2000);
+      console.error("Update process failed:", e);
+      headline.textContent = "更新失敗 (" + e.message + ")";
+      setTimeout(() => { headline.textContent = originalText; }, 3000);
     }
   };
 
