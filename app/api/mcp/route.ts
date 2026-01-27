@@ -1,4 +1,5 @@
 import { createMcpHandler } from "mcp-handler";
+import { z } from "zod";
 
 const WMO_JA: Record<number, string> = {
   0: "快晴",
@@ -234,6 +235,21 @@ function widgetHtml() {
   `.trim();
 }
 
+// Zod スキーマ定義
+const geocodePlaceSchema = z.object({
+  place: z.string().describe("場所名（例: 中央区 / Shibuya / Tokyo）"),
+  count: z.number().int().min(1).max(10).default(5),
+  days: z.number().int().min(1).max(7).default(3),
+});
+
+const getForecastSchema = z.object({
+  latitude: z.number().describe("緯度"),
+  longitude: z.number().describe("経度"),
+  days: z.number().int().min(1).max(7).default(3),
+  timezone: z.string().default("Asia/Tokyo"),
+  label: z.string().optional().describe("表示用ラベル（任意）"),
+});
+
 const handler = createMcpHandler(
   (server) => {
     // UI resource: ChatGPT内でウィジェットとして表示されます
@@ -258,15 +274,7 @@ const handler = createMcpHandler(
       {
         title: "候補地検索（ジオコード）",
         description: "場所名から候補地（緯度経度）を複数返します。",
-        inputSchema: {
-          type: "object",
-          properties: {
-            place: { type: "string", description: "場所名（例: 中央区 / Shibuya / Tokyo）" },
-            count: { type: "integer", minimum: 1, maximum: 10, default: 5 },
-            days: { type: "integer", minimum: 1, maximum: 7, default: 3 }
-          },
-          required: ["place"],
-        } as any,
+        inputSchema: geocodePlaceSchema,
         _meta: {
           "openai/outputTemplate": "ui://widget/weather.html",
           "openai/widgetAccessible": true,
@@ -315,17 +323,7 @@ const handler = createMcpHandler(
       {
         title: "天気取得（緯度経度）",
         description: "緯度経度から現在天気と数日予報を返します。",
-        inputSchema: {
-          type: "object",
-          properties: {
-            latitude: { type: "number" },
-            longitude: { type: "number" },
-            days: { type: "integer", minimum: 1, maximum: 7, default: 3 },
-            timezone: { type: "string", default: "Asia/Tokyo" },
-            label: { type: "string", description: "表示用ラベル（任意）" },
-          },
-          required: ["latitude", "longitude"],
-        } as any,
+        inputSchema: getForecastSchema,
         _meta: {
           "openai/outputTemplate": "ui://widget/weather.html",
           "openai/widgetAccessible": true,
