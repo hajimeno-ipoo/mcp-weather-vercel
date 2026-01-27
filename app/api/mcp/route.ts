@@ -404,13 +404,13 @@ function widgetHtml() {
       const dateStr = d.date ? d.date.split("-")[2] : "-";
       const dayOfWeek = ["日", "月", "火", "水", "木", "金", "土"][(new Date(d.date).getDay ? new Date(d.date).getDay() : 0)];
       
-      card.innerHTML = \`
-        <div style="font-weight:600; margin-bottom:6px; font-size:13px;">\${dateStr}日</div>
-        <div style="font-size:11px; color:#999; margin-bottom:4px;">(\${dayOfWeek})</div>
-        <div style="font-size:14px; margin:8px 0;">\${d.summary_ja}</div>
-        <div style="margin:6px 0; font-weight:500; font-size:13px;">\${d.temp_min_c}〜\${d.temp_max_c}℃</div>
-        <div style="font-size:11px; opacity:.8;">☔ \${d.precip_prob_max_percent}%</div>
-      \`;
+      card.innerHTML = [
+        '<div style="font-weight:600; margin-bottom:6px; font-size:13px;">' + dateStr + '日</div>',
+        '<div style="font-size:11px; color:#999; margin-bottom:4px;">(' + dayOfWeek + ')</div>',
+        '<div style="font-size:14px; margin:8px 0;">' + d.summary_ja + '</div>',
+        '<div style="margin:6px 0; font-weight:500; font-size:13px;">' + d.temp_min_c + '〜' + d.temp_max_c + '℃</div>',
+        '<div style="font-size:11px; opacity:.8;">☔ ' + d.precip_prob_max_percent + '%</div>'
+      ].join('');
       
       // ホバー効果
       card.addEventListener("mouseover", () => {
@@ -433,18 +433,18 @@ function widgetHtml() {
         detail.className = "detail-view";
         detail.style.cssText = "margin-top:12px; padding:12px; border:1px solid rgba(0,0,0,.1); border-radius:8px; background:rgba(0,0,0,.02); font-size:13px;";
         
-        detail.innerHTML = \`
-          <div style="font-weight:600; margin-bottom:8px; font-size:14px;">\${dateStr}日 (\${dayOfWeek}) の詳細</div>
-          <div style="display:grid; gap:6px; line-height:1.6;">
-            <div>📅 日付: \${d.date}</div>
-            <div>🌤️ 天気: \${d.summary_ja}</div>
-            <div>🌡️ 気温: 最低 \${d.temp_min_c}℃ / 最高 \${d.temp_max_c}℃</div>
-            <div>☔ 降水確率: \${d.precip_prob_max_percent}%</div>
-            <div>💧 降水量: \${d.precip_sum_mm ?? 0}mm</div>
-            <div>💨 風速: \${d.windspeed_max_kmh ?? "-"}km/h</div>
-            <div>☀️ 日照時間: \${d.sunshine_duration_s ? (d.sunshine_duration_s / 3600).toFixed(1) : "-"}h</div>
-          </div>
-        \`;
+        detail.innerHTML = [
+          '<div style="font-weight:600; margin-bottom:8px; font-size:14px;">' + dateStr + '日 (' + dayOfWeek + ') の詳細</div>',
+          '<div style="display:grid; gap:6px; line-height:1.6;">',
+            '<div>📅 日付: ' + d.date + '</div>',
+            '<div>🌤️ 天気: ' + d.summary_ja + '</div>',
+            '<div>🌡️ 気温: 最低 ' + d.temp_min_c + '℃ / 最高 ' + d.temp_max_c + '℃</div>',
+            '<div>☔ 降水確率: ' + d.precip_prob_max_percent + '%</div>',
+            '<div>💧 降水量: ' + (d.precip_sum_mm ?? 0) + 'mm</div>',
+            '<div>💨 風速: ' + (d.windspeed_max_kmh ?? '-') + 'km/h</div>',
+            '<div>☀️ 日照時間: ' + (d.sunshine_duration_s ? (d.sunshine_duration_s / 3600).toFixed(1) : '-') + 'h</div>',
+          '</div>'
+        ].join('');
         
         // 詳細をカードの下に挿入
         card.parentNode.insertBefore(detail, card.nextSibling);
