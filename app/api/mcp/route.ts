@@ -456,8 +456,9 @@ function widgetHtml() {
   }
 
   function render(out) {
-    if (out?.candidates) return renderCandidates(out);
-    return renderForecast(out);
+    if (!out) return;
+    if (out.kind === "geocode" || out.candidates) return renderCandidates(out);
+    if (out.kind === "forecast" || out.daily) return renderForecast(out);
   }
 
   render(window.openai?.toolOutput);
@@ -636,6 +637,8 @@ const handler = createMcpHandler(
             latitude,
             longitude,
             timezone,
+            name: label || `${latitude}, ${longitude}`,
+            query: label,
             label,
           },
           current: current
