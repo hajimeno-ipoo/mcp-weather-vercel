@@ -9,20 +9,21 @@
     "url": "https://github.com/yourusername/mcp-weather-vercel"
   },
   "license": "MIT",
-  "widgets": {
-    "weather-widget": {
+  "csp": "default-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'",
+  "widget_domain": "weather-widget.vercel.app",
+  "widgets": [
+    {
+      "name": "weather-widget",
       "title": "天気ウィジェット",
       "description": "ChatGPT内で天気予報を表示するウィジェット",
-      "uri": "ui://widget/weather.html",
-      "csp": "default-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'",
-      "widget_domain": "weather-widget",
-      "capabilities": {
-        "interactive": true,
-        "responsive": true,
-        "dark_mode": true
-      }
+      "enabled_by_default": true,
+      "capabilities": [
+        "interactive",
+        "responsive",
+        "dark_mode"
+      ]
     }
-  },
+  ],
   "tools": [
     {
       "name": "geocode_place",
