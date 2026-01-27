@@ -68,10 +68,10 @@ function widgetHtml() {
   .card { flex: 0 0 100px; padding: 12px; border: 1px solid rgba(0,0,0,.08); border-radius: 14px; text-align: center; background: rgba(255,255,255,0.3); transition: transform 0.2s; cursor: pointer; }
   .card.active { border-color: #ff922b; background: rgba(255,146,43,0.1); }
   .card:active { transform: scale(0.95); }
-  .chart-wrapper { margin: 25px 0 15px 0; background: rgba(0,0,0,0.02); border-radius: 12px; padding: 20px 10px 10px 10px; position: relative; }
-  .chart-y-axis { position: absolute; left: 5px; top: 20px; bottom: 40px; width: 30px; display: flex; flex-direction: column; justify-content: space-between; font-size: 10px; color: #888; text-align: right; padding-right: 5px; border-right: 1px solid rgba(0,0,0,0.05); }
-  .chart-area { margin-left: 35px; height: 100px; position: relative; }
-  .chart-x-axis { margin-left: 35px; display: flex; justify-content: space-between; margin-top: 8px; font-size: 10px; color: #666; }
+  .chart-wrapper { margin: 25px 0 15px 0; background: rgba(0,0,0,0.02); border-radius: 12px; padding: 25px 15px 15px 15px; position: relative; }
+  .chart-y-axis { position: absolute; left: 8px; top: 25px; bottom: 45px; width: 32px; display: flex; flex-direction: column; justify-content: space-between; font-size: 10px; color: #888; text-align: right; padding-right: 6px; border-right: 1px solid rgba(0,0,0,0.05); }
+  .chart-area { margin-left: 40px; height: 100px; position: relative; }
+  .chart-x-axis { margin-left: 40px; display: flex; justify-content: space-between; margin-top: 10px; font-size: 10px; color: #666; }
   .detail-panel { margin-top: 12px; padding: 14px; border-radius: 12px; background: rgba(0,0,0,0.04); font-size: 13px; line-height: 1.6; display: none; }
   @media (prefers-color-scheme: dark) {
     body { color: #eee; }
@@ -136,7 +136,6 @@ function widgetHtml() {
       headline.textContent = loc.name || loc.label || "天気予報";
       panel.innerHTML = "";
 
-      // SVG折れ線グラフの構築
       const temps = daily.map(d => d.temp_max_c).filter(t => !isNaN(t));
       const minT = Math.floor(Math.min(...temps) - 3);
       const maxT = Math.ceil(Math.max(...temps) + 3);
@@ -158,14 +157,14 @@ function widgetHtml() {
       svg.setAttribute("width", "100%");
       svg.setAttribute("height", "100%");
       svg.setAttribute("viewBox", "0 0 100 100");
-      svg.setAttribute("preserveAspectRatio", "none");
+      svg.setAttribute("preserveAspectRatio", "none"); // 修正: 座標系を100x100に固定しつつ幅に合わせる
       svg.style.overflow = "visible";
 
       [0, 50, 100].forEach(y => {
         const line = document.createElementNS(svgNS, "line");
         line.setAttribute("x1", "0"); line.setAttribute("y1", y);
         line.setAttribute("x2", "100"); line.setAttribute("y2", y);
-        line.setAttribute("stroke", "rgba(0,0,0,0.05)");
+        line.setAttribute("stroke", "rgba(0,0,0,0.06)");
         line.setAttribute("stroke-width", "0.5");
         svg.appendChild(line);
       });
@@ -183,27 +182,29 @@ function widgetHtml() {
       path.setAttribute("d", pathData);
       path.setAttribute("fill", "none");
       path.setAttribute("stroke", "#ff922b");
-      path.setAttribute("stroke-width", "2.5");
+      path.setAttribute("stroke-width", "3");
       path.setAttribute("stroke-linejoin", "round");
+      path.setAttribute("stroke-linecap", "round");
       svg.appendChild(path);
 
       points.forEach(p => {
         const circle = document.createElementNS(svgNS, "circle");
         circle.setAttribute("cx", p.x);
         circle.setAttribute("cy", p.y);
-        circle.setAttribute("r", "2");
+        circle.setAttribute("r", "2.5");
         circle.setAttribute("fill", "#fff");
         circle.setAttribute("stroke", "#ff922b");
-        circle.setAttribute("stroke-width", "1.5");
+        circle.setAttribute("stroke-width", "2");
         svg.appendChild(circle);
 
         const text = document.createElementNS(svgNS, "text");
         text.setAttribute("x", p.x);
-        text.setAttribute("y", p.y - 8);
+        text.setAttribute("y", p.y - 10);
         text.setAttribute("text-anchor", "middle");
-        text.setAttribute("font-size", "8");
+        text.setAttribute("font-size", "9");
         text.setAttribute("fill", "#ff922b");
         text.setAttribute("font-weight", "bold");
+        text.style.fontFamily = "sans-serif";
         text.textContent = p.temp + "°";
         svg.appendChild(text);
       });
@@ -219,6 +220,7 @@ function widgetHtml() {
         const dateStr = d.date.split("-")[2];
         const span = document.createElement("span");
         span.style.textAlign = "center";
+        span.style.flex = "1";
         span.innerHTML = dateStr + "<br>(" + day + ")";
         xAxis.appendChild(span);
       });
