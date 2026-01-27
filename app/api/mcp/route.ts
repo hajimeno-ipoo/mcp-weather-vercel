@@ -66,11 +66,12 @@ function widgetHtml() {
   .container { border: 1px solid rgba(0,0,0,.1); border-radius: 16px; padding: 16px; background: rgba(255,255,255,0.05); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
   .btn { padding: 8px 14px; border-radius: 10px; border: 1px solid rgba(0,0,0,.15); background: #fff; color: #000; cursor: pointer; font-size: 14px; font-weight: 500; }
   .card { flex: 0 0 100px; padding: 12px; border: 1px solid rgba(0,0,0,.08); border-radius: 14px; text-align: center; background: rgba(255,255,255,0.3); transition: transform 0.2s; cursor: pointer; }
+  .card.active { border-color: #ff922b; background: rgba(255,146,43,0.1); }
   .card:active { transform: scale(0.95); }
-  .chart-wrapper { margin: 20px 0; background: rgba(0,0,0,0.02); border-radius: 12px; padding: 15px 10px 10px 10px; position: relative; }
-  .chart-y-axis { position: absolute; left: 5px; top: 15px; bottom: 35px; width: 30px; display: flex; flex-direction: column; justify-content: space-between; font-size: 10px; color: #888; text-align: right; padding-right: 5px; border-right: 1px solid rgba(0,0,0,0.05); }
+  .chart-wrapper { margin: 25px 0 15px 0; background: rgba(0,0,0,0.02); border-radius: 12px; padding: 20px 10px 10px 10px; position: relative; }
+  .chart-y-axis { position: absolute; left: 5px; top: 20px; bottom: 40px; width: 30px; display: flex; flex-direction: column; justify-content: space-between; font-size: 10px; color: #888; text-align: right; padding-right: 5px; border-right: 1px solid rgba(0,0,0,0.05); }
   .chart-area { margin-left: 35px; height: 100px; position: relative; }
-  .chart-x-axis { margin-left: 35px; display: flex; justify-content: space-between; margin-top: 5px; font-size: 11px; color: #666; }
+  .chart-x-axis { margin-left: 35px; display: flex; justify-content: space-between; margin-top: 8px; font-size: 10px; color: #666; }
   .detail-panel { margin-top: 12px; padding: 14px; border-radius: 12px; background: rgba(0,0,0,0.04); font-size: 13px; line-height: 1.6; display: none; }
   @media (prefers-color-scheme: dark) {
     body { color: #eee; }
@@ -101,6 +102,8 @@ function widgetHtml() {
   const panel = document.getElementById("panel");
   const detail = document.getElementById("detail");
   const btn = document.getElementById("refresh");
+
+  let activeDate = null;
 
   function render(data) {
     if (!data) return;
@@ -135,20 +138,18 @@ function widgetHtml() {
 
       // SVG折れ線グラフの構築
       const temps = daily.map(d => d.temp_max_c).filter(t => !isNaN(t));
-      const minT = Math.floor(Math.min(...temps) - 2);
-      const maxT = Math.ceil(Math.max(...temps) + 2);
+      const minT = Math.floor(Math.min(...temps) - 3);
+      const maxT = Math.ceil(Math.max(...temps) + 3);
       const range = (maxT - minT) || 1;
 
       const chartWrapper = document.createElement("div");
       chartWrapper.className = "chart-wrapper";
 
-      // Y軸ラベル
       const yAxis = document.createElement("div");
       yAxis.className = "chart-y-axis";
       yAxis.innerHTML = '<span>' + maxT + '°</span><span>' + Math.round((maxT+minT)/2) + '°</span><span>' + minT + '°</span>';
       chartWrapper.appendChild(yAxis);
 
-      // グラフエリア (SVG)
       const chartArea = document.createElement("div");
       chartArea.className = "chart-area";
       
@@ -160,7 +161,6 @@ function widgetHtml() {
       svg.setAttribute("preserveAspectRatio", "none");
       svg.style.overflow = "visible";
 
-      // 背景のグリッド線
       [0, 50, 100].forEach(y => {
         const line = document.createElementNS(svgNS, "line");
         line.setAttribute("x1", "0"); line.setAttribute("y1", y);
@@ -170,7 +170,6 @@ function widgetHtml() {
         svg.appendChild(line);
       });
 
-      // 折れ線のパス計算
       let pathData = "";
       const points = [];
       daily.forEach((d, i) => {
@@ -184,44 +183,54 @@ function widgetHtml() {
       path.setAttribute("d", pathData);
       path.setAttribute("fill", "none");
       path.setAttribute("stroke", "#ff922b");
-      path.setAttribute("stroke-width", "2");
+      path.setAttribute("stroke-width", "2.5");
       path.setAttribute("stroke-linejoin", "round");
       svg.appendChild(path);
 
-      // 各地点のドット
       points.forEach(p => {
         const circle = document.createElementNS(svgNS, "circle");
         circle.setAttribute("cx", p.x);
         circle.setAttribute("cy", p.y);
-        circle.setAttribute("r", "1.5");
+        circle.setAttribute("r", "2");
         circle.setAttribute("fill", "#fff");
         circle.setAttribute("stroke", "#ff922b");
-        circle.setAttribute("stroke-width", "1");
+        circle.setAttribute("stroke-width", "1.5");
         svg.appendChild(circle);
+
+        const text = document.createElementNS(svgNS, "text");
+        text.setAttribute("x", p.x);
+        text.setAttribute("y", p.y - 8);
+        text.setAttribute("text-anchor", "middle");
+        text.setAttribute("font-size", "8");
+        text.setAttribute("fill", "#ff922b");
+        text.setAttribute("font-weight", "bold");
+        text.textContent = p.temp + "°";
+        svg.appendChild(text);
       });
 
       chartArea.appendChild(svg);
       chartWrapper.appendChild(chartArea);
 
-      // X軸ラベル (曜日)
       const xAxis = document.createElement("div");
       xAxis.className = "chart-x-axis";
       daily.forEach(d => {
-        const day = ["日","月","火","水","木","金","土"][new Date(d.date).getDay()];
+        const dateObj = new Date(d.date);
+        const day = ["日","月","火","水","木","金","土"][dateObj.getDay()];
+        const dateStr = d.date.split("-")[2];
         const span = document.createElement("span");
-        span.textContent = day;
+        span.style.textAlign = "center";
+        span.innerHTML = dateStr + "<br>(" + day + ")";
         xAxis.appendChild(span);
       });
       chartWrapper.appendChild(xAxis);
-
       panel.appendChild(chartWrapper);
 
-      // スクロールカード
       const scroll = document.createElement("div");
       scroll.style.cssText = "display:flex; gap:10px; overflow-x:auto; padding:4px 0; -webkit-overflow-scrolling: touch;";
       daily.forEach(d => {
         const c = document.createElement("div");
         c.className = "card";
+        if (activeDate === d.date) c.classList.add("active");
         const date = d.date ? d.date.split("-")[2] : "-";
         const day = ["日","月","火","水","木","金","土"][new Date(d.date).getDay()];
         c.innerHTML = '<div style="font-size:11px; opacity:0.6;">' + date + ' (' + day + ')</div>' +
@@ -230,15 +239,24 @@ function widgetHtml() {
                       '<div style="font-size:10px; margin-top:4px; opacity:0.7;">☔ ' + d.precip_prob_max_percent + '%</div>';
         
         c.onclick = () => {
-          detail.style.display = "block";
-          detail.innerHTML = '<div style="font-weight:700; margin-bottom:6px; font-size:14px;">' + d.date + ' (' + day + ') の詳細</div>' +
-                             '<div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">' +
-                             '<div>🌡 気温: ' + d.temp_min_c + '〜' + d.temp_max_c + '℃</div>' +
-                             '<div>☔ 降水確率: ' + d.precip_prob_max_percent + '%</div>' +
-                             '<div>💧 降水量: ' + (d.precip_sum_mm || 0) + 'mm</div>' +
-                             '<div>💨 最大風速: ' + (d.windspeed_max_kmh || "-") + 'km/h</div>' +
-                             '</div>';
-          detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          if (activeDate === d.date) {
+            activeDate = null;
+            detail.style.display = "none";
+            c.classList.remove("active");
+          } else {
+            document.querySelectorAll(".card").forEach(el => el.classList.remove("active"));
+            activeDate = d.date;
+            c.classList.add("active");
+            detail.style.display = "block";
+            detail.innerHTML = '<div style="font-weight:700; margin-bottom:6px; font-size:14px;">' + d.date + ' (' + day + ') の詳細</div>' +
+                               '<div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">' +
+                               '<div>🌡 気温: ' + d.temp_min_c + '〜' + d.temp_max_c + '℃</div>' +
+                               '<div>☔ 降水確率: ' + d.precip_prob_max_percent + '%</div>' +
+                               '<div>💧 降水量: ' + (d.precip_sum_mm || 0) + 'mm</div>' +
+                               '<div>💨 最大風速: ' + (d.windspeed_max_kmh || "-") + 'km/h</div>' +
+                               '</div>';
+            detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
         };
         scroll.appendChild(c);
       });
