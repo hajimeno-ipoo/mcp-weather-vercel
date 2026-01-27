@@ -451,6 +451,13 @@ const handler = createMcpHandler(
             uri: "ui://widget/weather.html",
             mimeType: "text/html+skybridge",
             text: widgetHtml(),
+            _meta: {
+              "openai/widgetDomain": "https://weather-widget.vercel.app",
+              "openai/widgetCSP": {
+                connect_domains: ["https://geocoding-api.open-meteo.com", "https://api.open-meteo.com"],
+                resource_domains: ["https://*.oaistatic.com"],
+              },
+            },
           },
         ],
       })
