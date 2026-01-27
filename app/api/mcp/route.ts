@@ -252,7 +252,7 @@ function widgetHtml() {
     <div style="display:flex; justify-content:space-between; align-items:center; gap: 8px; margin-bottom: 4px;">
       <div>
         <div style="font-size: 14px; opacity:.8;">天気</div>
-        <div id="headline" style="font-size: 18px; font-weight: 600;">-</div>
+        <div id="headline" style="font-size: 18px; font-weight: 600;">読み込み中...</div>
       </div>
       <button id="refresh" class="widget-button"
         style="padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(0,0,0,.18); background: white; cursor:pointer; transition: all 0.2s;">
@@ -277,9 +277,6 @@ function widgetHtml() {
   const periodSelector = document.getElementById("period-selector");
   const daysDisplay = document.getElementById("days-display");
 
-  // ダークモード検出
-  const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-
   function clear() {
     err.textContent = "";
     panel.innerHTML = "";
@@ -299,7 +296,7 @@ function widgetHtml() {
 
     const candidates = out?.candidates ?? [];
     if (!candidates.length) {
-      panel.textContent = "候補が見つかりませんでした。別の地名で試してください。";
+      panel.textContent = "候補が見つかりませんでした。";
       return;
     }
 
@@ -321,7 +318,7 @@ function widgetHtml() {
         try {
           setBusy(true);
           err.textContent = "";
-          const days = Math.min(7, Math.max(1, window.openai?.toolInput?.days ?? 7));
+          const days = 7;
           const timezone = c.timezone || "Asia/Tokyo";
           const next = await window.openai?.callTool("get_forecast", {
             latitude: c.latitude,
@@ -352,8 +349,6 @@ function widgetHtml() {
     periodSelector.style.display = "inline";
     clear();
 
-    console.log("renderForecast called", { days, dailyLength: daily.length, daily: daily });
-
     const now = out?.current;
     const nowDiv = document.createElement("div");
     nowDiv.style.cssText = "font-size:14px; margin-bottom:10px; padding:8px; border-radius:8px; background:rgba(0,0,0,.04);";
@@ -362,7 +357,6 @@ function widgetHtml() {
       : "いま: -";
     panel.appendChild(nowDiv);
 
-    // ASCII グラフ（気温折れ線）
     try {
       if (daily.length > 0) {
         const temps = daily.map(d => d.temp_max_c).filter(t => typeof t === 'number' && !isNaN(t));
@@ -392,18 +386,15 @@ function widgetHtml() {
           panel.appendChild(graph);
         }
       }
-    } catch (e) {
-      console.error("Graph rendering failed", e);
-    }
+    } catch (e) { console.error(e); }
 
-    // 常に横スクロール対応のカード表示（クリック可能に拡張）
     const scrollDiv = document.createElement("div");
     scrollDiv.style.cssText = "display:flex; gap:12px; overflow-x:auto; padding:8px 0; margin-top:8px; -webkit-overflow-scrolling: touch;";
     
-    daily.forEach((d, idx) => {
+    daily.forEach((d) => {
       const card = document.createElement("div");
       card.className = "daily-card";
-      card.style.cssText = "flex-shrink:0; min-width:90px; padding:10px; border:1px solid rgba(0,0,0,.08); border-radius:10px; text-align:center; font-size:12px; background: rgba(0,0,0,.01); cursor:pointer; transition:all 0.2s;";
+      card.style.cssText = "flex-shrink:0; min-width:90px; padding:10px; border:1px solid rgba(0,0,0,.08); border-radius:10px; text-align:center; font-size:12px; background: rgba(0,0,0,.01); cursor:pointer;";
       
       const dateStr = d.date ? d.date.split("-")[2] : "-";
       const dayOfWeek = ["日", "月", "火", "水", "木", "金", "土"][(new Date(d.date).getDay ? new Date(d.date).getDay() : 0)];
@@ -415,69 +406,42 @@ function widgetHtml() {
         '<div style="margin:6px 0; font-weight:500; font-size:13px;">' + d.temp_min_c + '〜' + d.temp_max_c + '℃</div>',
         '<div style="font-size:11px; opacity:.8;">☔ ' + d.precip_prob_max_percent + '%</div>'
       ].join('');
-      
-      // ホバー効果
-      card.addEventListener("mouseover", () => {
-        card.style.background = "rgba(0,0,0,.08)";
-        card.style.boxShadow = "0 2px 8px rgba(0,0,0,.1)";
-      });
-      card.addEventListener("mouseout", () => {
-        card.style.background = "rgba(0,0,0,.01)";
-        card.style.boxShadow = "none";
-      });
-      
-      // クリックで詳細情報展開
-      card.addEventListener("click", () => {
-        if (panel.querySelector(".detail-view")) {
-          panel.querySelector(".detail-view").remove();
-          return;
-        }
-        
-        const detail = document.createElement("div");
-        detail.className = "detail-view";
-        detail.style.cssText = "margin-top:12px; padding:12px; border:1px solid rgba(0,0,0,.1); border-radius:8px; background:rgba(0,0,0,.02); font-size:13px;";
-        
-        detail.innerHTML = [
-          '<div style="font-weight:600; margin-bottom:8px; font-size:14px;">' + dateStr + '日 (' + dayOfWeek + ') の詳細</div>',
-          '<div style="display:grid; gap:6px; line-height:1.6;">',
-            '<div>📅 日付: ' + d.date + '</div>',
-            '<div>🌤️ 天気: ' + d.summary_ja + '</div>',
-            '<div>🌡️ 気温: 最低 ' + d.temp_min_c + '℃ / 最高 ' + d.temp_max_c + '℃</div>',
-            '<div>☔ 降水確率: ' + d.precip_prob_max_percent + '%</div>',
-            '<div>💧 降水量: ' + (d.precip_sum_mm ?? 0) + 'mm</div>',
-            '<div>💨 風速: ' + (d.windspeed_max_kmh ?? '-') + 'km/h</div>',
-            '<div>☀️ 日照時間: ' + (d.sunshine_duration_s ? (d.sunshine_duration_s / 3600).toFixed(1) : '-') + 'h</div>',
-          '</div>'
-        ].join('');
-        
-        // 詳細をカードの下に挿入
-        card.parentNode.insertBefore(detail, card.nextSibling);
-      });
-      
       scrollDiv.appendChild(card);
     });
     panel.appendChild(scrollDiv);
   }
 
   function render(out) {
-    console.log("Widget render called with:", out);
+    console.log("Widget rendering...", out);
     if (!out) {
-      console.log("No output to render");
+      headline.textContent = "データなし";
       return;
     }
-    if (out.kind === "geocode" || out.candidates) {
-      console.log("Rendering candidates");
-      return renderCandidates(out);
-    }
-    if (out.kind === "forecast" || out.daily) {
-      console.log("Rendering forecast");
-      return renderForecast(out);
-    }
-    console.log("Unknown output type, cannot render");
+    if (out.kind === "geocode" || out.candidates) return renderCandidates(out);
+    if (out.kind === "forecast" || out.daily) return renderForecast(out);
+    headline.textContent = "不明な形式";
   }
 
-  console.log("Widget initialized. toolInput:", window.openai?.toolInput, "toolOutput:", window.openai?.toolOutput);
-  render(window.openai?.toolOutput);
+  // 起動時とグローバル更新時のリトライロジック
+  function initAndRender() {
+    const out = window.openai?.toolOutput;
+    if (out) {
+      render(out);
+    } else {
+      // 1秒ごとに最大5回リトライ
+      let retries = 0;
+      const timer = setInterval(() => {
+        const retryOut = window.openai?.toolOutput;
+        if (retryOut || retries > 5) {
+          clearInterval(timer);
+          render(retryOut);
+        }
+        retries++;
+      }, 1000);
+    }
+  }
+
+  initAndRender();
 
   btn.addEventListener("click", async () => {
     try {
@@ -485,18 +449,9 @@ function widgetHtml() {
       err.textContent = "";
       const input = window.openai?.toolInput ?? {};
       const out = window.openai?.toolOutput;
-      const isGeocode = !!out?.candidates;
-
-      if (isGeocode) {
-        const next = await window.openai?.callTool("geocode_place", input);
-        render(next?.structuredContent ?? next);
-      } else {
-        const next = await window.openai?.callTool("get_forecast", {
-          ...input,
-          days: Math.min(7, Math.max(1, input.days ?? 7))
-        });
-        render(next?.structuredContent ?? next);
-      }
+      const toolName = (out?.candidates) ? "geocode_place" : "get_forecast";
+      const next = await window.openai?.callTool(toolName, input);
+      render(next?.structuredContent ?? next);
     } catch(e) {
       err.textContent = String(e?.message ?? e);
     } finally {
@@ -634,9 +589,6 @@ const handler = createMcpHandler(
         const tmax: number[] = daily.temperature_2m_max ?? [];
         const tmin: number[] = daily.temperature_2m_min ?? [];
         const pop: number[] = daily.precipitation_probability_max ?? [];
-
-        // Debug: ログに出力
-        console.log(`[forecast] requested days: ${days}, received time array length: ${time.length}`);
 
         const dailyRows = time.map((d, i) => ({
           date: d,
