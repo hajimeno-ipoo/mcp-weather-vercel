@@ -107,206 +107,229 @@ function widgetHtml() {
   let activeDate = null;
 
   function render(data) {
-    if (!data) return;
-    const out = data.structuredContent || data;
-    const daily = out.daily || [];
-    const loc = out.location || {};
+    try {
+      if (!data) return;
+      const out = data.structuredContent || data;
+      const candidates = out.candidates || [];
+      const daily = out.daily || [];
+      const loc = out.location || {};
 
-    if (daily.length > 0) {
-      headline.textContent = loc.name || loc.label || "天気予報";
-      panel.innerHTML = "";
-
-      const maxTemps = daily.map(d => d.temp_max_c).filter(t => !isNaN(t));
-      const minTemps = daily.map(d => d.temp_min_c).filter(t => !isNaN(t));
-      const allTemps = [...maxTemps, ...minTemps];
-      const maxAbs = Math.max(...allTemps.map(Math.abs), 5);
-      const absLimit = Math.ceil(maxAbs + 2);
-      const minT = -absLimit;
-      const maxT = absLimit;
-      const range = maxT - minT;
-
-      const chartWrapper = document.createElement("div");
-      chartWrapper.className = "chart-wrapper";
-
-      const yAxis = document.createElement("div");
-      yAxis.className = "chart-y-axis";
-      yAxis.innerHTML = '<span>' + maxT + '°</span><span>0°</span><span>' + minT + '°</span>';
-      chartWrapper.appendChild(yAxis);
-
-      const chartArea = document.createElement("div");
-      chartArea.className = "chart-area";
-      
-      const svgNS = "http://www.w3.org/2000/svg";
-      const svg = document.createElementNS(svgNS, "svg");
-      svg.setAttribute("width", "100%");
-      svg.setAttribute("height", "100%");
-      svg.setAttribute("viewBox", "0 0 1000 1000"); // 座標系を細かくして歪みを防ぐ
-      svg.setAttribute("preserveAspectRatio", "none");
-      svg.style.overflow = "visible";
-
-      const defs = document.createElementNS(svgNS, "defs");
-      const gradMax = document.createElementNS(svgNS, "linearGradient");
-      gradMax.setAttribute("id", "gradMax");
-      gradMax.setAttribute("x1", "0%"); gradMax.setAttribute("y1", "0%"); gradMax.setAttribute("x2", "0%"); gradMax.setAttribute("y2", "100%");
-      gradMax.innerHTML = '<stop offset="0%" style="stop-color:#ff922b;stop-opacity:0.4" /><stop offset="100%" style="stop-color:#ff922b;stop-opacity:0" />';
-      defs.appendChild(gradMax);
-
-      const gradMin = document.createElementNS(svgNS, "linearGradient");
-      gradMin.setAttribute("id", "gradMin");
-      gradMin.setAttribute("x1", "0%"); gradMin.setAttribute("y1", "100%"); gradMin.setAttribute("x2", "0%"); gradMin.setAttribute("y2", "0%");
-      gradMin.innerHTML = '<stop offset="0%" style="stop-color:#339af0;stop-opacity:0.4" /><stop offset="100%" style="stop-color:#339af0;stop-opacity:0" />';
-      defs.appendChild(gradMin);
-      svg.appendChild(defs);
-
-      // グリッド線 (より細かく、しっかりとした見た目)
-      for (let i = 0; i <= 10; i++) {
-        const y = i * 100;
-        const line = document.createElementNS(svgNS, "line");
-        line.setAttribute("x1", "0"); line.setAttribute("y1", y);
-        line.setAttribute("x2", "1000"); line.setAttribute("y2", y);
-        line.setAttribute("stroke", i === 5 ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.05)");
-        line.setAttribute("stroke-width", i === 5 ? "2" : "1");
-        svg.appendChild(line);
-      }
-
-      const xStep = 1000 / daily.length;
-      const xOffset = xStep / 2;
-      const maxPoints = daily.map((d, i) => ({
-        x: xOffset + (i * xStep),
-        y: 1000 - ((d.temp_max_c - minT) / range * 1000),
-        temp: d.temp_max_c
-      }));
-      const minPoints = daily.map((d, i) => ({
-        x: xOffset + (i * xStep),
-        y: 1000 - ((d.temp_min_c - minT) / range * 1000),
-        temp: d.temp_min_c
-      }));
-
-      // 滑らかな曲線を生成する関数 (ベジェ曲線)
-      const getCurvePath = (pts, baseLineY) => {
-        if (pts.length < 2) return "";
-        let d = "M" + pts[0].x + "," + baseLineY;
-        d += " L" + pts[0].x + "," + pts[0].y;
-        for (let i = 0; i < pts.length - 1; i++) {
-          const p0 = pts[i];
-          const p1 = pts[i+1];
-          const cp1x = p0.x + (p1.x - p0.x) / 2;
-          d += " C" + cp1x + "," + p0.y + " " + cp1x + "," + p1.y + " " + p1.x + "," + p1.y;
-        }
-        d += " L" + pts[pts.length-1].x + "," + baseLineY + " Z";
-        return d;
-      };
-
-      const getLinePath = (pts) => {
-        if (pts.length < 2) return "";
-        let d = "M" + pts[0].x + "," + pts[0].y;
-        for (let i = 0; i < pts.length - 1; i++) {
-          const p0 = pts[i];
-          const p1 = pts[i+1];
-          const cp1x = p0.x + (p1.x - p0.x) / 2;
-          d += " C" + cp1x + "," + p0.y + " " + cp1x + "," + p1.y + " " + p1.x + "," + p1.y;
-        }
-        return d;
-      };
-
-      // エリア描画
-      const drawArea = (pathData, gradId) => {
-        const p = document.createElementNS(svgNS, "path");
-        p.setAttribute("d", pathData); p.setAttribute("fill", "url(#" + gradId + ")");
-        svg.appendChild(p);
-      };
-      drawArea(getCurvePath(maxPoints, 500), "gradMax");
-      drawArea(getCurvePath(minPoints, 500), "gradMin");
-
-      // 線描画
-      const drawLine = (pathData, color) => {
-        const p = document.createElementNS(svgNS, "path");
-        p.setAttribute("d", pathData); p.setAttribute("fill", "none");
-        p.setAttribute("stroke", color); p.setAttribute("stroke-width", "3");
-        p.setAttribute("stroke-linecap", "round");
-        svg.appendChild(p);
-      };
-      drawLine(getLinePath(maxPoints), "#ff922b");
-      drawLine(getLinePath(minPoints), "#339af0");
-
-      // ポイントと数値 (歪みを防ぐために座標計算を調整)
-      const drawPoints = (pts, color, isMax) => {
-        pts.forEach(p => {
-          const c = document.createElementNS(svgNS, "circle");
-          c.setAttribute("cx", p.x); c.setAttribute("cy", p.y); c.setAttribute("r", "8");
-          c.setAttribute("fill", "#fff"); c.setAttribute("stroke", color); c.setAttribute("stroke-width", "3");
-          svg.appendChild(c);
-
-          const t = document.createElementNS(svgNS, "text");
-          t.setAttribute("x", p.x); t.setAttribute("y", isMax ? p.y - 25 : p.y + 45);
-          t.setAttribute("text-anchor", "middle");
-          t.setAttribute("font-size", "45"); // 大きめの座標系に合わせたサイズ
-          t.setAttribute("fill", color); t.setAttribute("font-weight", "700");
-          t.style.fontFamily = "sans-serif";
-          // テキストの歪みを防ぐためのスケール調整 (SVGの親アスペクト比を打ち消す)
-          // ここでは親の preserveAspectRatio が none なので、ブラウザが描画時に補正してくれるのを期待するか、
-          // あるいは viewBox を使わずに固定ピクセルで描画するのが確実ですが、
-          // 今回は座標系を大きくすることで相対的な歪みを最小限に抑えます。
-          t.textContent = p.temp + "°";
-          svg.appendChild(t);
+      if (candidates.length > 0) {
+        headline.textContent = (out.query || "場所") + " の候補";
+        detail.style.display = "none";
+        panel.innerHTML = '<div id="list" style="display:grid; gap:8px;"></div>';
+        const list = panel.querySelector("#list");
+        candidates.forEach(c => {
+          const b = document.createElement("button");
+          b.className = "btn";
+          b.style.width = "100%";
+          b.style.textAlign = "left";
+          b.textContent = c.name + (c.admin1 ? " (" + c.admin1 + ")" : "");
+          b.onclick = async () => {
+            headline.textContent = "取得中...";
+            const next = await window.openai.callTool("get_forecast", {
+              latitude: c.latitude, longitude: c.longitude, days: 7, label: c.name
+            });
+            render(next);
+          };
+          list.appendChild(b);
         });
-      };
-      drawPoints(maxPoints, "#ff922b", true);
-      drawPoints(minPoints, "#339af0", false);
+      } else if (daily.length > 0) {
+        headline.textContent = loc.name || loc.label || "天気予報";
+        panel.innerHTML = "";
 
-      chartArea.appendChild(svg);
-      chartWrapper.appendChild(chartArea);
+        // グラフ描画を試みる
+        try {
+          const maxTemps = daily.map(d => d.temp_max_c).filter(t => !isNaN(t));
+          const minTemps = daily.map(d => d.temp_min_c).filter(t => !isNaN(t));
+          const allTemps = [...maxTemps, ...minTemps];
+          const maxAbs = Math.max(...allTemps.map(Math.abs), 5);
+          const absLimit = Math.ceil(maxAbs + 2);
+          const minT = -absLimit;
+          const maxT = absLimit;
+          const range = maxT - minT;
 
-      const xAxis = document.createElement("div");
-      xAxis.className = "chart-x-axis";
-      daily.forEach(d => {
-        const dateObj = new Date(d.date);
-        const day = ["日","月","火","水","木","金","土"][dateObj.getDay()];
-        const dateStr = d.date.split("-")[2];
-        const span = document.createElement("span");
-        span.style.textAlign = "center";
-        span.innerHTML = '<span style="font-weight:700;">' + dateStr + '</span><br>(' + day + ')';
-        xAxis.appendChild(span);
-      });
-      chartWrapper.appendChild(xAxis);
-      panel.appendChild(chartWrapper);
+          const chartWrapper = document.createElement("div");
+          chartWrapper.className = "chart-wrapper";
 
-      const scroll = document.createElement("div");
-      scroll.style.cssText = "display:flex; gap:10px; overflow-x:auto; padding:4px 0; -webkit-overflow-scrolling: touch;";
-      daily.forEach(d => {
-        const c = document.createElement("div");
-        c.className = "card";
-        if (activeDate === d.date) c.classList.add("active");
-        const date = d.date ? d.date.split("-")[2] : "-";
-        const day = ["日","月","火","水","木","金","土"][new Date(d.date).getDay()];
-        c.innerHTML = '<div style="font-size:11px; opacity:0.6;">' + date + ' (' + day + ')</div>' +
-                      '<div style="font-size:18px; margin:8px 0;">' + d.summary_ja + '</div>' +
-                      '<div style="font-weight:700; font-size:16px;">' + d.temp_max_c + '° / ' + d.temp_min_c + '°</div>' +
-                      '<div style="font-size:10px; margin-top:4px; opacity:0.7;">☔ ' + d.precip_prob_max_percent + '%</div>';
-        
-        c.onclick = () => {
-          if (activeDate === d.date) {
-            activeDate = null;
-            detail.style.display = "none";
-            c.classList.remove("active");
-          } else {
-            document.querySelectorAll(".card").forEach(el => el.classList.remove("active"));
-            activeDate = d.date;
-            c.classList.add("active");
-            detail.style.display = "block";
-            detail.innerHTML = '<div style="font-weight:700; margin-bottom:6px; font-size:14px;">' + d.date + ' (' + day + ') の詳細</div>' +
-                               '<div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">' +
-                               '<div>🌡 気温: ' + d.temp_min_c + '〜' + d.temp_max_c + '℃</div>' +
-                               '<div>☔ 降水確率: ' + d.precip_prob_max_percent + '%</div>' +
-                               '<div>💧 降水量: ' + (d.precip_sum_mm || 0) + 'mm</div>' +
-                               '<div>💨 最大風速: ' + (d.windspeed_max_kmh || "-") + 'km/h</div>' +
-                               '</div>';
-            detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          const yAxis = document.createElement("div");
+          yAxis.className = "chart-y-axis";
+          yAxis.innerHTML = '<span>' + maxT + '°</span><span>0°</span><span>' + minT + '°</span>';
+          chartWrapper.appendChild(yAxis);
+
+          const chartArea = document.createElement("div");
+          chartArea.className = "chart-area";
+          
+          const svgNS = "http://www.w3.org/2000/svg";
+          const svg = document.createElementNS(svgNS, "svg");
+          svg.setAttribute("width", "100%");
+          svg.setAttribute("height", "100%");
+          svg.setAttribute("viewBox", "0 0 1000 1000");
+          svg.setAttribute("preserveAspectRatio", "none");
+          svg.style.overflow = "visible";
+
+          const defs = document.createElementNS(svgNS, "defs");
+          const gradMax = document.createElementNS(svgNS, "linearGradient");
+          gradMax.setAttribute("id", "gradMax");
+          gradMax.setAttribute("x1", "0%"); gradMax.setAttribute("y1", "0%"); gradMax.setAttribute("x2", "0%"); gradMax.setAttribute("y2", "100%");
+          gradMax.innerHTML = '<stop offset="0%" style="stop-color:#ff922b;stop-opacity:0.4" /><stop offset="100%" style="stop-color:#ff922b;stop-opacity:0" />';
+          defs.appendChild(gradMax);
+
+          const gradMin = document.createElementNS(svgNS, "linearGradient");
+          gradMin.setAttribute("id", "gradMin");
+          gradMin.setAttribute("x1", "0%"); gradMin.setAttribute("y1", "100%"); gradMin.setAttribute("x2", "0%"); gradMin.setAttribute("y2", "0%");
+          gradMin.innerHTML = '<stop offset="0%" style="stop-color:#339af0;stop-opacity:0.4" /><stop offset="100%" style="stop-color:#339af0;stop-opacity:0" />';
+          defs.appendChild(gradMin);
+          svg.appendChild(defs);
+
+          // グリッド線
+          for (let i = 0; i <= 10; i++) {
+            const y = i * 100;
+            const line = document.createElementNS(svgNS, "line");
+            line.setAttribute("x1", "0"); line.setAttribute("y1", y);
+            line.setAttribute("x2", "1000"); line.setAttribute("y2", y);
+            line.setAttribute("stroke", i === 5 ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.05)");
+            line.setAttribute("stroke-width", i === 5 ? "2" : "1");
+            svg.appendChild(line);
           }
-        };
-        scroll.appendChild(c);
-      });
-      panel.appendChild(scroll);
+
+          const xStep = 1000 / daily.length;
+          const xOffset = xStep / 2;
+          const maxPoints = daily.map((d, i) => ({
+            x: xOffset + (i * xStep),
+            y: 1000 - ((d.temp_max_c - minT) / range * 1000),
+            temp: d.temp_max_c
+          }));
+          const minPoints = daily.map((d, i) => ({
+            x: xOffset + (i * xStep),
+            y: 1000 - ((d.temp_min_c - minT) / range * 1000),
+            temp: d.temp_min_c
+          }));
+
+          const getCurvePath = (pts, baseLineY) => {
+            if (pts.length < 2) return "";
+            let d = "M" + pts[0].x + "," + baseLineY;
+            d += " L" + pts[0].x + "," + pts[0].y;
+            for (let i = 0; i < pts.length - 1; i++) {
+              const p0 = pts[i];
+              const p1 = pts[i+1];
+              const cp1x = p0.x + (p1.x - p0.x) / 2;
+              d += " C" + cp1x + "," + p0.y + " " + cp1x + "," + p1.y + " " + p1.x + "," + p1.y;
+            }
+            d += " L" + pts[pts.length-1].x + "," + baseLineY + " Z";
+            return d;
+          };
+
+          const getLinePath = (pts) => {
+            if (pts.length < 2) return "";
+            let d = "M" + pts[0].x + "," + pts[0].y;
+            for (let i = 0; i < pts.length - 1; i++) {
+              const p0 = pts[i];
+              const p1 = pts[i+1];
+              const cp1x = p0.x + (p1.x - p0.x) / 2;
+              d += " C" + cp1x + "," + p0.y + " " + cp1x + "," + p1.y + " " + p1.x + "," + p1.y;
+            }
+            return d;
+          };
+
+          const drawArea = (pathData, gradId) => {
+            const p = document.createElementNS(svgNS, "path");
+            p.setAttribute("d", pathData); p.setAttribute("fill", "url(#" + gradId + ")");
+            svg.appendChild(p);
+          };
+          drawArea(getCurvePath(maxPoints, 500), "gradMax");
+          drawArea(getCurvePath(minPoints, 500), "gradMin");
+
+          const drawLine = (pathData, color) => {
+            const p = document.createElementNS(svgNS, "path");
+            p.setAttribute("d", pathData); p.setAttribute("fill", "none");
+            p.setAttribute("stroke", color); p.setAttribute("stroke-width", "3");
+            p.setAttribute("stroke-linecap", "round");
+            svg.appendChild(p);
+          };
+          drawLine(getLinePath(maxPoints), "#ff922b");
+          drawLine(getLinePath(minPoints), "#339af0");
+
+          const drawPoints = (pts, color, isMax) => {
+            pts.forEach(p => {
+              const c = document.createElementNS(svgNS, "circle");
+              c.setAttribute("cx", p.x); c.setAttribute("cy", p.y); c.setAttribute("r", "8");
+              c.setAttribute("fill", "#fff"); c.setAttribute("stroke", color); c.setAttribute("stroke-width", "3");
+              svg.appendChild(c);
+
+              const t = document.createElementNS(svgNS, "text");
+              t.setAttribute("x", p.x); t.setAttribute("y", isMax ? p.y - 25 : p.y + 45);
+              t.setAttribute("text-anchor", "middle");
+              t.setAttribute("font-size", "45");
+              t.setAttribute("fill", color); t.setAttribute("font-weight", "700");
+              t.style.fontFamily = "sans-serif";
+              t.textContent = p.temp + "°";
+              svg.appendChild(t);
+            });
+          };
+          drawPoints(maxPoints, "#ff922b", true);
+          drawPoints(minPoints, "#339af0", false);
+
+          chartArea.appendChild(svg);
+          chartWrapper.appendChild(chartArea);
+
+          const xAxis = document.createElement("div");
+          xAxis.className = "chart-x-axis";
+          daily.forEach(d => {
+            const dateObj = new Date(d.date);
+            const day = ["日","月","火","水","木","金","土"][dateObj.getDay()];
+            const dateStr = d.date.split("-")[2];
+            const span = document.createElement("span");
+            span.style.textAlign = "center";
+            span.innerHTML = '<span style="font-weight:700;">' + dateStr + '</span><br>(' + day + ')';
+            xAxis.appendChild(span);
+          });
+          chartWrapper.appendChild(xAxis);
+          panel.appendChild(chartWrapper);
+        } catch (e) {
+          console.error("Chart error:", e);
+        }
+
+        const scroll = document.createElement("div");
+        scroll.style.cssText = "display:flex; gap:10px; overflow-x:auto; padding:4px 0; -webkit-overflow-scrolling: touch;";
+        daily.forEach(d => {
+          const c = document.createElement("div");
+          c.className = "card";
+          if (activeDate === d.date) c.classList.add("active");
+          const date = d.date ? d.date.split("-")[2] : "-";
+          const day = ["日","月","火","水","木","金","土"][new Date(d.date).getDay()];
+          c.innerHTML = '<div style="font-size:11px; opacity:0.6;">' + date + ' (' + day + ')</div>' +
+                        '<div style="font-size:18px; margin:8px 0;">' + d.summary_ja + '</div>' +
+                        '<div style="font-weight:700; font-size:16px;">' + d.temp_max_c + '° / ' + d.temp_min_c + '°</div>' +
+                        '<div style="font-size:10px; margin-top:4px; opacity:0.7;">☔ ' + d.precip_prob_max_percent + '%</div>';
+          
+          c.onclick = () => {
+            if (activeDate === d.date) {
+              activeDate = null;
+              detail.style.display = "none";
+              c.classList.remove("active");
+            } else {
+              document.querySelectorAll(".card").forEach(el => el.classList.remove("active"));
+              activeDate = d.date;
+              c.classList.add("active");
+              detail.style.display = "block";
+              detail.innerHTML = '<div style="font-weight:700; margin-bottom:6px; font-size:14px;">' + d.date + ' (' + day + ') の詳細</div>' +
+                                 '<div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">' +
+                                 '<div>🌡 気温: ' + d.temp_min_c + '〜' + d.temp_max_c + '℃</div>' +
+                                 '<div>☔ 降水確率: ' + d.precip_prob_max_percent + '%</div>' +
+                                 '<div>💧 降水量: ' + (d.precip_sum_mm || 0) + 'mm</div>' +
+                                 '<div>💨 最大風速: ' + (d.windspeed_max_kmh || "-") + 'km/h</div>' +
+                                 '</div>';
+              detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+          };
+          scroll.appendChild(c);
+        });
+        panel.appendChild(scroll);
+      }
+    } catch (e) {
+      console.error("Render error:", e);
+      headline.textContent = "表示エラーが発生しました";
     }
   }
 
