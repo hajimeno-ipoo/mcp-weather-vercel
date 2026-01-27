@@ -196,6 +196,8 @@ async function forecastByCoords(
       ].join(",")
     );
 
+    console.log(`[forecastByCoords] API URL: ${url.toString()}`);
+
     const r = await fetchWithRetry(url.toString());
     if (!r.ok) {
       throw new APIError(
@@ -350,6 +352,9 @@ function widgetHtml() {
     periodSelector.style.display = "inline";
     clear();
 
+    // Debug: コンソールに出力
+    console.log("renderForecast called", { days, dailyLength: daily.length, daily: daily });
+
     const now = out?.current;
     const nowDiv = document.createElement("div");
     nowDiv.style.cssText = "font-size:14px; margin-bottom:10px; padding:8px; border-radius:8px; background:rgba(0,0,0,.04);";
@@ -427,7 +432,7 @@ const geocodePlaceSchema = z.object({
 const getForecastSchema = z.object({
   latitude: z.number().describe("緯度"),
   longitude: z.number().describe("経度"),
-  days: z.number().int().min(1).max(7).default(3),
+  days: z.number().int().min(1).max(7).default(7),
   timezone: z.string().default("Asia/Tokyo"),
   label: z.string().optional().describe("表示用ラベル（任意）"),
 });
@@ -533,6 +538,9 @@ const handler = createMcpHandler(
         const tmax: number[] = daily.temperature_2m_max ?? [];
         const tmin: number[] = daily.temperature_2m_min ?? [];
         const pop: number[] = daily.precipitation_probability_max ?? [];
+
+        // Debug: ログに出力
+        console.log(`[forecast] requested days: ${days}, received time array length: ${time.length}`);
 
         const dailyRows = time.map((d, i) => ({
           date: d,
