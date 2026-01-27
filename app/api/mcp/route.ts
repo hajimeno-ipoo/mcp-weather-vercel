@@ -266,7 +266,7 @@ const handler = createMcpHandler(
             days: { type: "integer", minimum: 1, maximum: 7, default: 3 }
           },
           required: ["place"],
-        },
+        } as any,
         _meta: {
           "openai/outputTemplate": "ui://widget/weather.html",
           "openai/widgetAccessible": true,
@@ -304,7 +304,7 @@ const handler = createMcpHandler(
 
         return {
           structuredContent,
-          content: [{ type: "text", text: lines.join("\n") }],
+          content: [{ type: "text" as const, text: lines.join("\n") }],
         };
       }
     );
@@ -325,7 +325,7 @@ const handler = createMcpHandler(
             label: { type: "string", description: "表示用ラベル（任意）" },
           },
           required: ["latitude", "longitude"],
-        },
+        } as any,
         _meta: {
           "openai/outputTemplate": "ui://widget/weather.html",
           "openai/widgetAccessible": true,
@@ -395,7 +395,7 @@ const handler = createMcpHandler(
 
         return {
           structuredContent,
-          content: [{ type: "text", text: lines.join("\n") }],
+          content: [{ type: "text" as const, text: lines.join("\n") }],
         };
       }
     );
