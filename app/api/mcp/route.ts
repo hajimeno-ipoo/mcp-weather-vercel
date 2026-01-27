@@ -358,41 +358,24 @@ function widgetHtml() {
       : "いま: -";
     panel.appendChild(nowDiv);
 
-    // 7日間を横スクロール表示
-    if (days > 3) {
-      const scrollDiv = document.createElement("div");
-      scrollDiv.style.cssText = "display:flex; gap:8px; overflow-x:auto; padding:8px 0; margin-top:8px;";
-      daily.forEach((d) => {
-        const card = document.createElement("div");
-        card.className = "daily-card";
-        card.style.cssText = "flex-shrink:0; min-width:70px; padding:8px; border:1px solid rgba(0,0,0,.08); border-radius:10px; text-align:center; font-size:12px;";
-        card.innerHTML = \`
-          <div style="font-weight:600; margin-bottom:4px;">\${d.date.split("-")[2]}</div>
-          <div style="font-size:16px; margin:4px 0;">\${d.summary_ja}</div>
-          <div>\${d.temp_min_c}〜\${d.temp_max_c}℃</div>
-          <div style="font-size:11px; opacity:.7;">☔ \${d.precip_prob_max_percent}%</div>
-        \`;
-        scrollDiv.appendChild(card);
-      });
-      panel.appendChild(scrollDiv);
-    } else {
-      // 3日以下は表形式で表示
-      const grid = document.createElement("div");
-      grid.style.cssText = "display:grid; gap:8px;";
-      daily.forEach((d) => {
-        const row = document.createElement("div");
-        row.className = "daily-row";
-        row.style.cssText = "display:flex; justify-content:space-between; gap:8px; padding:8px; border:1px solid rgba(0,0,0,.08); border-radius:10px;";
-        row.innerHTML = \`
-          <div style="min-width: 96px;">\${d.date}</div>
-          <div style="flex:1;">\${d.summary_ja}</div>
-          <div style="min-width: 120px; text-align:right;">\${d.temp_min_c}〜\${d.temp_max_c}℃</div>
-          <div style="min-width: 120px; text-align:right;">降水 最大\${d.precip_prob_max_percent}%</div>
-        \`;
-        grid.appendChild(row);
-      });
-      panel.appendChild(grid);
-    }
+    // 常に横スクロール対応のカード表示
+    const scrollDiv = document.createElement("div");
+    scrollDiv.style.cssText = "display:flex; gap:8px; overflow-x:auto; padding:8px 0; margin-top:8px; -webkit-overflow-scrolling: touch;";
+    daily.forEach((d) => {
+      const card = document.createElement("div");
+      card.className = "daily-card";
+      card.style.cssText = "flex-shrink:0; min-width:75px; padding:8px; border:1px solid rgba(0,0,0,.08); border-radius:10px; text-align:center; font-size:12px; background: rgba(0,0,0,.01);";
+      const dateStr = d.date ? d.date.split("-")[2] : "-";
+      const dayOfWeek = ["日", "月", "火", "水", "木", "金", "土"][(new Date(d.date).getDay ? new Date(d.date).getDay() : 0)];
+      card.innerHTML = \`
+        <div style="font-weight:600; margin-bottom:4px;">\${dateStr}日 (\${dayOfWeek})</div>
+        <div style="font-size:14px; margin:6px 0;">\${d.summary_ja}</div>
+        <div style="margin:4px 0; font-weight:500;">\${d.temp_min_c}〜\${d.temp_max_c}℃</div>
+        <div style="font-size:11px; opacity:.8;">☔ \${d.precip_prob_max_percent}%</div>
+      \`;
+      scrollDiv.appendChild(card);
+    });
+    panel.appendChild(scrollDiv);
   }
 
   function render(out) {
