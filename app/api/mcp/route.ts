@@ -533,7 +533,7 @@ const handler = createMcpHandler(
       async (input: any) => {
         const latitude = Number(input.latitude);
         const longitude = Number(input.longitude);
-        const days = Math.max(1, Math.min(7, Number(input.days ?? 3)));
+        const days = Math.max(1, Math.min(7, Number(input.days ?? 7)));
         const timezone = String(input.timezone ?? "Asia/Tokyo");
         const label = (input.label ? String(input.label) : undefined);
 
