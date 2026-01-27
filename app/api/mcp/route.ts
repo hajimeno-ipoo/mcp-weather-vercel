@@ -228,17 +228,38 @@ async function forecastByCoords(
 
 function widgetHtml() {
   return `
+<style>
+  :root {
+    color-scheme: light dark;
+  }
+  
+  @media (prefers-color-scheme: dark) {
+    body { background: #1e1e1e; color: #ffffff; }
+    .widget-container { border-color: rgba(255,255,255,.2); background: #2d2d2d; }
+    .widget-button { background: #404040; color: #ffffff; border-color: rgba(255,255,255,.2); }
+    .widget-button:hover { background: #505050; }
+    .daily-card { border-color: rgba(255,255,255,.1); background: #353535; }
+    .daily-row { border-color: rgba(255,255,255,.1); }
+    .candidate-btn { background: #404040; color: #ffffff; border-color: rgba(255,255,255,.2); }
+    .candidate-btn:hover { background: #505050; }
+  }
+</style>
+
 <div style="font-family: ui-sans-serif, system-ui; padding: 12px;">
-  <div style="border: 1px solid rgba(0,0,0,.12); border-radius: 12px; padding: 12px;">
-    <div style="display:flex; justify-content:space-between; align-items:center; gap: 8px;">
+  <div class="widget-container" style="border: 1px solid rgba(0,0,0,.12); border-radius: 12px; padding: 12px; transition: all 0.2s;">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap: 8px; margin-bottom: 4px;">
       <div>
         <div style="font-size: 14px; opacity:.8;">天気</div>
         <div id="headline" style="font-size: 18px; font-weight: 600;">-</div>
       </div>
-      <button id="refresh"
-        style="padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(0,0,0,.18); background: white; cursor:pointer;">
+      <button id="refresh" class="widget-button"
+        style="padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(0,0,0,.18); background: white; cursor:pointer; transition: all 0.2s;">
         更新
       </button>
+    </div>
+
+    <div id="period-selector" style="display:none; font-size:12px; margin-bottom:8px; opacity:.8;">
+      📅 表示期間: <span id="days-display">3日</span>
     </div>
 
     <div id="panel" style="margin-top: 10px;"></div>
@@ -251,6 +272,11 @@ function widgetHtml() {
   const panel = document.getElementById("panel");
   const err = document.getElementById("err");
   const btn = document.getElementById("refresh");
+  const periodSelector = document.getElementById("period-selector");
+  const daysDisplay = document.getElementById("days-display");
+
+  // ダークモード検出
+  const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
 
   function clear() {
     err.textContent = "";
@@ -266,6 +292,7 @@ function widgetHtml() {
   function renderCandidates(out) {
     const q = out?.query ?? out?.location?.query ?? "-";
     headline.textContent = q + " の候補";
+    periodSelector.style.display = "none";
     clear();
 
     const candidates = out?.candidates ?? [];
@@ -285,13 +312,14 @@ function widgetHtml() {
       ].join("");
 
       const b = document.createElement("button");
+      b.className = "candidate-btn";
       b.textContent = label;
-      b.style.cssText = "text-align:left; padding:10px; border-radius:10px; border:1px solid rgba(0,0,0,.10); background:white; cursor:pointer;";
+      b.style.cssText = "text-align:left; padding:10px; border-radius:10px; border:1px solid rgba(0,0,0,.10); background:white; cursor:pointer; transition: all 0.2s;";
       b.addEventListener("click", async () => {
         try {
           setBusy(true);
           err.textContent = "";
-          const days = (window.openai?.toolInput?.days ?? 3);
+          const days = Math.min(7, Math.max(1, window.openai?.toolInput?.days ?? 7));
           const timezone = c.timezone || "Asia/Tokyo";
           const next = await window.openai?.callTool("get_forecast", {
             latitude: c.latitude,
@@ -316,32 +344,55 @@ function widgetHtml() {
   function renderForecast(out) {
     const loc = out?.location;
     headline.textContent = loc?.label ?? loc?.name ?? loc?.query ?? "-";
+    const daily = out?.daily ?? [];
+    const days = daily.length;
+    daysDisplay.textContent = days + "日";
+    periodSelector.style.display = "inline";
     clear();
 
     const now = out?.current;
-    const daily = out?.daily ?? [];
-
     const nowDiv = document.createElement("div");
-    nowDiv.style.cssText = "font-size:14px; margin-bottom:10px;";
+    nowDiv.style.cssText = "font-size:14px; margin-bottom:10px; padding:8px; border-radius:8px; background:rgba(0,0,0,.04);";
     nowDiv.textContent = now
-      ? ("いま: " + now.temperature_c + "℃ / 風 " + now.windspeed)
+      ? ("🌡️ いま: " + now.temperature_c + "℃ | 💨 風 " + now.windspeed + " km/h")
       : "いま: -";
     panel.appendChild(nowDiv);
 
-    const grid = document.createElement("div");
-    grid.style.cssText = "display:grid; gap:8px;";
-    daily.forEach((d) => {
-      const row = document.createElement("div");
-      row.style.cssText = "display:flex; justify-content:space-between; gap:8px; padding:8px; border:1px solid rgba(0,0,0,.08); border-radius:10px;";
-      row.innerHTML = \`
-        <div style="min-width: 96px;">\${d.date}</div>
-        <div style="flex:1;">\${d.summary_ja}</div>
-        <div style="min-width: 120px; text-align:right;">\${d.temp_min_c}〜\${d.temp_max_c}℃</div>
-        <div style="min-width: 120px; text-align:right;">降水 最大\${d.precip_prob_max_percent}%</div>
-      \`;
-      grid.appendChild(row);
-    });
-    panel.appendChild(grid);
+    // 7日間を横スクロール表示
+    if (days > 3) {
+      const scrollDiv = document.createElement("div");
+      scrollDiv.style.cssText = "display:flex; gap:8px; overflow-x:auto; padding:8px 0; margin-top:8px;";
+      daily.forEach((d) => {
+        const card = document.createElement("div");
+        card.className = "daily-card";
+        card.style.cssText = "flex-shrink:0; min-width:70px; padding:8px; border:1px solid rgba(0,0,0,.08); border-radius:10px; text-align:center; font-size:12px;";
+        card.innerHTML = \`
+          <div style="font-weight:600; margin-bottom:4px;">\${d.date.split("-")[2]}</div>
+          <div style="font-size:16px; margin:4px 0;">\${d.summary_ja}</div>
+          <div>\${d.temp_min_c}〜\${d.temp_max_c}℃</div>
+          <div style="font-size:11px; opacity:.7;">☔ \${d.precip_prob_max_percent}%</div>
+        \`;
+        scrollDiv.appendChild(card);
+      });
+      panel.appendChild(scrollDiv);
+    } else {
+      // 3日以下は表形式で表示
+      const grid = document.createElement("div");
+      grid.style.cssText = "display:grid; gap:8px;";
+      daily.forEach((d) => {
+        const row = document.createElement("div");
+        row.className = "daily-row";
+        row.style.cssText = "display:flex; justify-content:space-between; gap:8px; padding:8px; border:1px solid rgba(0,0,0,.08); border-radius:10px;";
+        row.innerHTML = \`
+          <div style="min-width: 96px;">\${d.date}</div>
+          <div style="flex:1;">\${d.summary_ja}</div>
+          <div style="min-width: 120px; text-align:right;">\${d.temp_min_c}〜\${d.temp_max_c}℃</div>
+          <div style="min-width: 120px; text-align:right;">降水 最大\${d.precip_prob_max_percent}%</div>
+        \`;
+        grid.appendChild(row);
+      });
+      panel.appendChild(grid);
+    }
   }
 
   function render(out) {
@@ -363,7 +414,10 @@ function widgetHtml() {
         const next = await window.openai?.callTool("geocode_place", input);
         render(next?.structuredContent ?? next);
       } else {
-        const next = await window.openai?.callTool("get_forecast", input);
+        const next = await window.openai?.callTool("get_forecast", {
+          ...input,
+          days: Math.min(7, Math.max(1, input.days ?? 7))
+        });
         render(next?.structuredContent ?? next);
       }
     } catch(e) {
