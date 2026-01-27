@@ -69,7 +69,7 @@ function widgetHtml() {
   .card.active { border-color: #ff922b; background: rgba(255,146,43,0.1); }
   .card:active { transform: scale(0.95); }
   .chart-wrapper { margin: 25px 0 15px 0; background: rgba(0,0,0,0.02); border-radius: 12px; padding: 40px 10px 25px 10px; position: relative; }
-  .chart-y-axis { position: absolute; left: 8px; top: 40px; bottom: 65px; width: 32px; display: flex; flex-direction: column; justify-content: space-between; font-size: 8px; color: #666; text-align: right; padding-right: 6px; border-right: 1px solid rgba(0,0,0,0.15); }
+  .chart-y-axis { position: absolute; left: 8px; top: 40px; bottom: 65px; width: 32px; display: flex; flex-direction: column; justify-content: space-between; font-size: 8px; color: #666; text-align: right; padding-right: 6px; border-right: 1px solid rgba(0,0,0,0.15); pointer-events: none; }
   .chart-area { margin-left: 40px; margin-right: 10px; height: 160px; position: relative; }
   .chart-x-axis { margin-left: 40px; margin-right: 10px; display: grid; grid-template-columns: repeat(7, 1fr); margin-top: 15px; font-size: 8px; color: #666; }
   .detail-panel { margin-top: 12px; padding: 14px; border-radius: 12px; background: rgba(0,0,0,0.04); font-size: 13px; line-height: 1.6; display: none; }
@@ -143,18 +143,21 @@ function widgetHtml() {
           const maxTemps = daily.map(d => d.temp_max_c).filter(t => !isNaN(t));
           const minTemps = daily.map(d => d.temp_min_c).filter(t => !isNaN(t));
           const allTemps = [...maxTemps, ...minTemps];
-          const maxAbs = Math.max(...allTemps.map(Math.abs), 5);
-          const absLimit = Math.ceil(maxAbs + 2);
-          const minT = -absLimit;
+          
+          // スケール計算: 0度を中央(500)に固定するためのロジック
+          const maxAbs = Math.max(...allTemps.map(Math.abs), 10);
+          const absLimit = Math.ceil(maxAbs / 5) * 5 + 5; // 5の倍数でキリよく
           const maxT = absLimit;
-          const range = maxT - minT;
+          const minT = -absLimit;
+          const range = maxT - minT; // 常に 2 * absLimit
 
           const chartWrapper = document.createElement("div");
           chartWrapper.className = "chart-wrapper";
 
+          // Y軸ラベル
           const yAxis = document.createElement("div");
           yAxis.className = "chart-y-axis";
-          yAxis.innerHTML = '<span>' + maxT + '°</span><span>0°</span><span>' + minT + '°</span>';
+          yAxis.innerHTML = '<span>' + maxT + '°</span><span>' + (maxT/2) + '°</span><span>0°</span><span>' + (minT/2) + '°</span><span>' + minT + '°</span>';
           chartWrapper.appendChild(yAxis);
 
           const chartArea = document.createElement("div");
@@ -182,27 +185,36 @@ function widgetHtml() {
           defs.appendChild(gradMin);
           svg.appendChild(defs);
 
-          // グリッド線
-          for (let i = 0; i <= 10; i++) {
-            const y = i * 100;
+          // グリッド線（5度ごと）
+          const gridCount = (maxT - minT) / 5;
+          for (let i = 0; i <= gridCount; i++) {
+            const temp = maxT - (i * i === 0 ? 0 : i * 5);
+            const y = (maxT - (maxT - (i * 5))) / range * 1000;
             const line = document.createElementNS(svgNS, "line");
             line.setAttribute("x1", "0"); line.setAttribute("y1", y);
             line.setAttribute("x2", "1000"); line.setAttribute("y2", y);
-            line.setAttribute("stroke", i === 5 ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.05)");
-            line.setAttribute("stroke-width", i === 5 ? "2" : "1");
+            
+            // 0度は太く、その他は薄く
+            const isZero = Math.abs(maxT - (i * 5)) < 0.1;
+            line.setAttribute("stroke", isZero ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.05)");
+            line.setAttribute("stroke-width", isZero ? "3" : "1");
             svg.appendChild(line);
           }
 
           const xStep = 1000 / daily.length;
           const xOffset = xStep / 2;
+          
+          // 座標計算関数: temp=maxTのときy=0, temp=0のときy=500, temp=minTのときy=1000
+          const getValY = (temp) => (maxT - temp) / range * 1000;
+
           const maxPoints = daily.map((d, i) => ({
             x: xOffset + (i * xStep),
-            y: 1000 - ((d.temp_max_c - minT) / range * 1000),
+            y: getValY(d.temp_max_c),
             temp: d.temp_max_c
           }));
           const minPoints = daily.map((d, i) => ({
             x: xOffset + (i * xStep),
-            y: 1000 - ((d.temp_min_c - minT) / range * 1000),
+            y: getValY(d.temp_min_c),
             temp: d.temp_min_c
           }));
 
@@ -243,7 +255,7 @@ function widgetHtml() {
           const drawLine = (pathData, color) => {
             const p = document.createElementNS(svgNS, "path");
             p.setAttribute("d", pathData); p.setAttribute("fill", "none");
-            p.setAttribute("stroke", color); p.setAttribute("stroke-width", "3");
+            p.setAttribute("stroke", color); p.setAttribute("stroke-width", "4");
             p.setAttribute("stroke-linecap", "round");
             svg.appendChild(p);
           };
@@ -253,16 +265,18 @@ function widgetHtml() {
           const drawPoints = (pts, color, isMax) => {
             pts.forEach(p => {
               const c = document.createElementNS(svgNS, "circle");
-              c.setAttribute("cx", p.x); c.setAttribute("cy", p.y); c.setAttribute("r", "8");
-              c.setAttribute("fill", "#fff"); c.setAttribute("stroke", color); c.setAttribute("stroke-width", "3");
+              c.setAttribute("cx", p.x); c.setAttribute("cy", p.y); c.setAttribute("r", "10");
+              c.setAttribute("fill", "#fff"); c.setAttribute("stroke", color); c.setAttribute("stroke-width", "4");
               svg.appendChild(c);
 
               const t = document.createElementNS(svgNS, "text");
-              t.setAttribute("x", p.x); t.setAttribute("y", isMax ? p.y - 25 : p.y + 45);
+              // ラベルがグリッドと重なりすぎないよう調整
+              t.setAttribute("x", p.x); t.setAttribute("y", isMax ? p.y - 30 : p.y + 50);
               t.setAttribute("text-anchor", "middle");
-              t.setAttribute("font-size", "45");
-              t.setAttribute("fill", color); t.setAttribute("font-weight", "700");
+              t.setAttribute("font-size", "48");
+              t.setAttribute("fill", color); t.setAttribute("font-weight", "800");
               t.style.fontFamily = "sans-serif";
+              t.style.textShadow = "0 0 4px rgba(255,255,255,0.8)";
               t.textContent = p.temp + "°";
               svg.appendChild(t);
             });
