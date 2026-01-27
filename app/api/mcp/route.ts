@@ -68,10 +68,10 @@ function widgetHtml() {
   .card { flex: 0 0 100px; padding: 12px; border: 1px solid rgba(0,0,0,.08); border-radius: 14px; text-align: center; background: rgba(255,255,255,0.3); transition: transform 0.2s; cursor: pointer; }
   .card.active { border-color: #ff922b; background: rgba(255,146,43,0.1); }
   .card:active { transform: scale(0.95); }
-  .chart-wrapper { margin: 25px 0 15px 0; background: rgba(0,0,0,0.02); border-radius: 12px; padding: 30px 15px 15px 15px; position: relative; }
-  .chart-y-axis { position: absolute; left: 8px; top: 30px; bottom: 50px; width: 32px; display: flex; flex-direction: column; justify-content: space-between; font-size: 9px; color: #888; text-align: right; padding-right: 6px; border-right: 1px solid rgba(0,0,0,0.05); }
-  .chart-area { margin-left: 40px; height: 100px; position: relative; }
-  .chart-x-axis { margin-left: 40px; display: flex; justify-content: space-between; margin-top: 12px; font-size: 9px; color: #666; }
+  .chart-wrapper { margin: 25px 0 15px 0; background: rgba(0,0,0,0.02); border-radius: 12px; padding: 30px 20px 15px 20px; position: relative; }
+  .chart-y-axis { position: absolute; left: 8px; top: 30px; bottom: 50px; width: 32px; display: flex; flex-direction: column; justify-content: space-between; font-size: 8px; color: #666; text-align: right; padding-right: 6px; border-right: 1px solid rgba(0,0,0,0.15); }
+  .chart-area { margin-left: 40px; height: 100px; position: relative; border-bottom: 1px solid rgba(0,0,0,0.15); }
+  .chart-x-axis { margin-left: 40px; display: flex; justify-content: space-between; margin-top: 10px; font-size: 8px; color: #666; }
   .detail-panel { margin-top: 12px; padding: 14px; border-radius: 12px; background: rgba(0,0,0,0.04); font-size: 13px; line-height: 1.6; display: none; }
   @media (prefers-color-scheme: dark) {
     body { color: #eee; }
@@ -79,8 +79,9 @@ function widgetHtml() {
     .btn { background: #444; color: #fff; border-color: rgba(255,255,255,0.1); }
     .card { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
     .chart-wrapper { background: rgba(255,255,255,0.03); }
-    .chart-y-axis { border-color: rgba(255,255,255,0.1); color: #aaa; }
-    .chart-x-axis { color: #aaa; }
+    .chart-y-axis { border-color: rgba(255,255,255,0.2); color: #999; }
+    .chart-area { border-color: rgba(255,255,255,0.2); }
+    .chart-x-axis { color: #999; }
     .detail-panel { background: rgba(255,255,255,0.05); }
   }
 </style>
@@ -164,8 +165,8 @@ function widgetHtml() {
         const line = document.createElementNS(svgNS, "line");
         line.setAttribute("x1", "0"); line.setAttribute("y1", y);
         line.setAttribute("x2", "100"); line.setAttribute("y2", y);
-        line.setAttribute("stroke", "rgba(0,0,0,0.06)");
-        line.setAttribute("stroke-width", "0.3");
+        line.setAttribute("stroke", "rgba(0,0,0,0.08)");
+        line.setAttribute("stroke-width", "0.2");
         svg.appendChild(line);
       });
 
@@ -173,7 +174,8 @@ function widgetHtml() {
       const points = [];
       daily.forEach((d, i) => {
         const x = (i / (daily.length - 1)) * 100;
-        const y = 100 - ((d.temp_max_c - minT) / range * 100);
+        // 描画範囲を 15〜85 に収めて、上下の余裕を確保
+        const y = 85 - ((d.temp_max_c - minT) / range * 70);
         points.push({x, y, temp: d.temp_max_c});
         pathData += (i === 0 ? "M" : " L") + x + "," + y;
       });
@@ -182,7 +184,7 @@ function widgetHtml() {
       path.setAttribute("d", pathData);
       path.setAttribute("fill", "none");
       path.setAttribute("stroke", "#ff922b");
-      path.setAttribute("stroke-width", "1.5");
+      path.setAttribute("stroke-width", "1.0");
       path.setAttribute("stroke-linejoin", "round");
       path.setAttribute("stroke-linecap", "round");
       svg.appendChild(path);
@@ -191,17 +193,17 @@ function widgetHtml() {
         const circle = document.createElementNS(svgNS, "circle");
         circle.setAttribute("cx", p.x);
         circle.setAttribute("cy", p.y);
-        circle.setAttribute("r", "1.5");
+        circle.setAttribute("r", "1.2");
         circle.setAttribute("fill", "#fff");
         circle.setAttribute("stroke", "#ff922b");
-        circle.setAttribute("stroke-width", "1");
+        circle.setAttribute("stroke-width", "0.8");
         svg.appendChild(circle);
 
         const text = document.createElementNS(svgNS, "text");
         text.setAttribute("x", p.x);
-        text.setAttribute("y", p.y - 8);
+        text.setAttribute("y", p.y - 6);
         text.setAttribute("text-anchor", "middle");
-        text.setAttribute("font-size", "7");
+        text.setAttribute("font-size", "6");
         text.setAttribute("fill", "#ff922b");
         text.setAttribute("font-weight", "500");
         text.style.fontFamily = "sans-serif";
