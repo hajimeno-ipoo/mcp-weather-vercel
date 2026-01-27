@@ -50,7 +50,7 @@
     },
     {
       "name": "get_forecast",
-      "description": "座標から天気予報データを取得",
+      "description": "座標から天気予報データを取得（ウィジェットから呼び出し）",
       "parameters": {
         "type": "object",
         "properties": {
@@ -78,7 +78,8 @@
           }
         },
         "required": ["latitude", "longitude"]
-      }
+      },
+      "widget_only": true
     }
   ]
 }
