@@ -70,7 +70,7 @@ function widgetHtml() {
   .card:active { transform: scale(0.95); }
   .chart-wrapper { margin: 25px 0 15px 0; background: rgba(0,0,0,0.02); border-radius: 12px; padding: 40px 10px 25px 10px; position: relative; }
   .chart-y-axis { position: absolute; left: 8px; top: 40px; bottom: 65px; width: 32px; display: flex; flex-direction: column; justify-content: space-between; font-size: 8px; color: #666; text-align: right; padding-right: 6px; border-right: 1px solid rgba(0,0,0,0.15); pointer-events: none; }
-  .chart-area { margin-left: 40px; margin-right: 10px; height: 160px; position: relative; }
+  .chart-area { margin-left: 40px; margin-right: 10px; height: 220px; position: relative; }
   .chart-x-axis { margin-left: 40px; margin-right: 10px; display: grid; grid-template-columns: repeat(7, 1fr); margin-top: 15px; font-size: 8px; color: #666; }
   .detail-panel { margin-top: 12px; padding: 14px; border-radius: 12px; background: rgba(0,0,0,0.04); font-size: 13px; line-height: 1.6; display: none; }
   @media (prefers-color-scheme: dark) {
@@ -80,7 +80,6 @@ function widgetHtml() {
     .card { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
     .chart-wrapper { background: rgba(255,255,255,0.03); }
     .chart-y-axis { border-color: rgba(255,255,255,0.2); color: #999; }
-    .chart-area { border-color: rgba(255,255,255,0.2); }
     .chart-x-axis { color: #999; }
     .detail-panel { background: rgba(255,255,255,0.05); }
   }
@@ -89,7 +88,7 @@ function widgetHtml() {
 <div class="container">
   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
     <div>
-      <div style="font-size:13px; opacity:0.6; margin-bottom:2px;">気温推移 (基準線: 0°C)</div>
+      <div style="font-size:13px; opacity:0.6; margin-bottom:2px;">気温推移 (-15°C 〜 30°C)</div>
       <div id="headline" style="font-size:20px; font-weight:700;">読み込み中...</div>
     </div>
     <button id="refresh" class="btn">更新</button>
@@ -138,18 +137,12 @@ function widgetHtml() {
         headline.textContent = loc.name || loc.label || "天気予報";
         panel.innerHTML = "";
 
-        // グラフ描画を試みる
+        // グラフ描画
         try {
-          const maxTemps = daily.map(d => d.temp_max_c).filter(t => !isNaN(t));
-          const minTemps = daily.map(d => d.temp_min_c).filter(t => !isNaN(t));
-          const allTemps = [...maxTemps, ...minTemps];
-          
-          // スケール計算: 0度を中央(500)に固定するためのロジック
-          const maxAbs = Math.max(...allTemps.map(Math.abs), 10);
-          const absLimit = Math.ceil(maxAbs / 5) * 5 + 5; // 5の倍数でキリよく
-          const maxT = absLimit;
-          const minT = -absLimit;
-          const range = maxT - minT; // 常に 2 * absLimit
+          // 固定スケール: -15度 〜 30度
+          const maxT = 30;
+          const minT = -15;
+          const range = maxT - minT;
 
           const chartWrapper = document.createElement("div");
           chartWrapper.className = "chart-wrapper";
@@ -157,7 +150,7 @@ function widgetHtml() {
           // Y軸ラベル
           const yAxis = document.createElement("div");
           yAxis.className = "chart-y-axis";
-          yAxis.innerHTML = '<span>' + maxT + '°</span><span>' + (maxT/2) + '°</span><span>0°</span><span>' + (minT/2) + '°</span><span>' + minT + '°</span>';
+          yAxis.innerHTML = '<span>30°</span><span>15°</span><span>0°</span><span>-15°</span>';
           chartWrapper.appendChild(yAxis);
 
           const chartArea = document.createElement("div");
@@ -172,63 +165,50 @@ function widgetHtml() {
           svg.style.overflow = "visible";
 
           const defs = document.createElementNS(svgNS, "defs");
-          const gradMax = document.createElementNS(svgNS, "linearGradient");
-          gradMax.setAttribute("id", "gradMax");
-          gradMax.setAttribute("x1", "0%"); gradMax.setAttribute("y1", "0%"); gradMax.setAttribute("x2", "0%"); gradMax.setAttribute("y2", "100%");
-          gradMax.innerHTML = '<stop offset="0%" style="stop-color:#ff922b;stop-opacity:0.4" /><stop offset="100%" style="stop-color:#ff922b;stop-opacity:0" />';
-          defs.appendChild(gradMax);
-
-          const gradMin = document.createElementNS(svgNS, "linearGradient");
-          gradMin.setAttribute("id", "gradMin");
-          gradMin.setAttribute("x1", "0%"); gradMin.setAttribute("y1", "100%"); gradMin.setAttribute("x2", "0%"); gradMin.setAttribute("y2", "0%");
-          gradMin.innerHTML = '<stop offset="0%" style="stop-color:#339af0;stop-opacity:0.4" /><stop offset="100%" style="stop-color:#339af0;stop-opacity:0" />';
-          defs.appendChild(gradMin);
+          const grad = document.createElementNS(svgNS, "linearGradient");
+          grad.setAttribute("id", "tempGrad");
+          grad.setAttribute("x1", "0%"); grad.setAttribute("y1", "0%"); grad.setAttribute("x2", "0%"); grad.setAttribute("y2", "100%");
+          grad.innerHTML = '<stop offset="0%" style="stop-color:#ff922b;stop-opacity:0.3" /><stop offset="100%" style="stop-color:#339af0;stop-opacity:0.3" />';
+          defs.appendChild(grad);
           svg.appendChild(defs);
 
           // グリッド線（5度ごと）
-          const gridCount = (maxT - minT) / 5;
-          for (let i = 0; i <= gridCount; i++) {
-            const temp = maxT - (i * i === 0 ? 0 : i * 5);
-            const y = (maxT - (maxT - (i * 5))) / range * 1000;
+          for (let temp = minT; temp <= maxT; temp += 5) {
+            const y = (maxT - temp) / range * 1000;
             const line = document.createElementNS(svgNS, "line");
             line.setAttribute("x1", "0"); line.setAttribute("y1", y);
             line.setAttribute("x2", "1000"); line.setAttribute("y2", y);
-            
-            // 0度は太く、その他は薄く
-            const isZero = Math.abs(maxT - (i * 5)) < 0.1;
-            line.setAttribute("stroke", isZero ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.05)");
+            const isZero = Math.abs(temp) < 0.1;
+            line.setAttribute("stroke", isZero ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.06)");
             line.setAttribute("stroke-width", isZero ? "3" : "1");
             svg.appendChild(line);
           }
 
           const xStep = 1000 / daily.length;
           const xOffset = xStep / 2;
-          
-          // 座標計算関数: temp=maxTのときy=0, temp=0のときy=500, temp=minTのときy=1000
           const getValY = (temp) => (maxT - temp) / range * 1000;
 
-          const maxPoints = daily.map((d, i) => ({
-            x: xOffset + (i * xStep),
-            y: getValY(d.temp_max_c),
-            temp: d.temp_max_c
-          }));
-          const minPoints = daily.map((d, i) => ({
-            x: xOffset + (i * xStep),
-            y: getValY(d.temp_min_c),
-            temp: d.temp_min_c
-          }));
+          const maxPoints = daily.map((d, i) => ({ x: xOffset + (i * xStep), y: getValY(d.temp_max_c), temp: d.temp_max_c }));
+          const minPoints = daily.map((d, i) => ({ x: xOffset + (i * xStep), y: getValY(d.temp_min_c), temp: d.temp_min_c }));
 
-          const getCurvePath = (pts, baseLineY) => {
-            if (pts.length < 2) return "";
-            let d = "M" + pts[0].x + "," + baseLineY;
-            d += " L" + pts[0].x + "," + pts[0].y;
-            for (let i = 0; i < pts.length - 1; i++) {
-              const p0 = pts[i];
-              const p1 = pts[i+1];
+          // 最高気温と最低気温の間を塗りつぶすパス
+          const getAreaPath = (maxPts, minPts) => {
+            if (maxPts.length < 2) return "";
+            let d = "M" + maxPts[0].x + "," + maxPts[0].y;
+            // 上の曲線（最高気温）
+            for (let i = 0; i < maxPts.length - 1; i++) {
+              const p0 = maxPts[i], p1 = maxPts[i+1];
               const cp1x = p0.x + (p1.x - p0.x) / 2;
               d += " C" + cp1x + "," + p0.y + " " + cp1x + "," + p1.y + " " + p1.x + "," + p1.y;
             }
-            d += " L" + pts[pts.length-1].x + "," + baseLineY + " Z";
+            // 下の曲線（最低気温）を逆に辿る
+            d += " L" + minPts[minPts.length-1].x + "," + minPts[minPts.length-1].y;
+            for (let i = minPts.length - 1; i > 0; i--) {
+              const p0 = minPts[i], p1 = minPts[i-1];
+              const cp1x = p0.x + (p1.x - p0.x) / 2;
+              d += " C" + cp1x + "," + p0.y + " " + cp1x + "," + p1.y + " " + p1.x + "," + p1.y;
+            }
+            d += " Z";
             return d;
           };
 
@@ -236,21 +216,18 @@ function widgetHtml() {
             if (pts.length < 2) return "";
             let d = "M" + pts[0].x + "," + pts[0].y;
             for (let i = 0; i < pts.length - 1; i++) {
-              const p0 = pts[i];
-              const p1 = pts[i+1];
+              const p0 = pts[i], p1 = pts[i+1];
               const cp1x = p0.x + (p1.x - p0.x) / 2;
               d += " C" + cp1x + "," + p0.y + " " + cp1x + "," + p1.y + " " + p1.x + "," + p1.y;
             }
             return d;
           };
 
-          const drawArea = (pathData, gradId) => {
-            const p = document.createElementNS(svgNS, "path");
-            p.setAttribute("d", pathData); p.setAttribute("fill", "url(#" + gradId + ")");
-            svg.appendChild(p);
-          };
-          drawArea(getCurvePath(maxPoints, 500), "gradMax");
-          drawArea(getCurvePath(minPoints, 500), "gradMin");
+          // エリア描画
+          const area = document.createElementNS(svgNS, "path");
+          area.setAttribute("d", getAreaPath(maxPoints, minPoints));
+          area.setAttribute("fill", "url(#tempGrad)");
+          svg.appendChild(area);
 
           const drawLine = (pathData, color) => {
             const p = document.createElementNS(svgNS, "path");
@@ -270,13 +247,12 @@ function widgetHtml() {
               svg.appendChild(c);
 
               const t = document.createElementNS(svgNS, "text");
-              // ラベルがグリッドと重なりすぎないよう調整
-              t.setAttribute("x", p.x); t.setAttribute("y", isMax ? p.y - 30 : p.y + 50);
+              t.setAttribute("x", p.x); t.setAttribute("y", isMax ? p.y - 25 : p.y + 40);
               t.setAttribute("text-anchor", "middle");
-              t.setAttribute("font-size", "48");
-              t.setAttribute("fill", color); t.setAttribute("font-weight", "800");
+              t.setAttribute("font-size", "32");
+              t.setAttribute("fill", color); t.setAttribute("font-weight", "700");
               t.style.fontFamily = "sans-serif";
-              t.style.textShadow = "0 0 4px rgba(255,255,255,0.8)";
+              t.style.textShadow = "0 0 4px rgba(255,255,255,0.9)";
               t.textContent = p.temp + "°";
               svg.appendChild(t);
             });
