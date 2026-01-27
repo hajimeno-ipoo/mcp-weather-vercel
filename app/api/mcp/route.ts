@@ -365,17 +365,18 @@ function widgetHtml() {
 
     // 常に横スクロール対応のカード表示
     const scrollDiv = document.createElement("div");
-    scrollDiv.style.cssText = "display:flex; gap:8px; overflow-x:auto; padding:8px 0; margin-top:8px; -webkit-overflow-scrolling: touch;";
+    scrollDiv.style.cssText = "display:flex; gap:12px; overflow-x:auto; padding:8px 0; margin-top:8px; -webkit-overflow-scrolling: touch;";
     daily.forEach((d) => {
       const card = document.createElement("div");
       card.className = "daily-card";
-      card.style.cssText = "flex-shrink:0; min-width:75px; padding:8px; border:1px solid rgba(0,0,0,.08); border-radius:10px; text-align:center; font-size:12px; background: rgba(0,0,0,.01);";
+      card.style.cssText = "flex-shrink:0; min-width:90px; padding:10px; border:1px solid rgba(0,0,0,.08); border-radius:10px; text-align:center; font-size:12px; background: rgba(0,0,0,.01);";
       const dateStr = d.date ? d.date.split("-")[2] : "-";
       const dayOfWeek = ["日", "月", "火", "水", "木", "金", "土"][(new Date(d.date).getDay ? new Date(d.date).getDay() : 0)];
       card.innerHTML = \`
-        <div style="font-weight:600; margin-bottom:4px;">\${dateStr}日 (\${dayOfWeek})</div>
-        <div style="font-size:14px; margin:6px 0;">\${d.summary_ja}</div>
-        <div style="margin:4px 0; font-weight:500;">\${d.temp_min_c}〜\${d.temp_max_c}℃</div>
+        <div style="font-weight:600; margin-bottom:6px; font-size:13px;">\${dateStr}日</div>
+        <div style="font-size:11px; color:#999; margin-bottom:4px;">(\${dayOfWeek})</div>
+        <div style="font-size:14px; margin:8px 0;">\${d.summary_ja}</div>
+        <div style="margin:6px 0; font-weight:500; font-size:13px;">\${d.temp_min_c}〜\${d.temp_max_c}℃</div>
         <div style="font-size:11px; opacity:.8;">☔ \${d.precip_prob_max_percent}%</div>
       \`;
       scrollDiv.appendChild(card);
