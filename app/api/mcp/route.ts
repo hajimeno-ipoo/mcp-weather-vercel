@@ -62,35 +62,39 @@ function widgetHtml() {
   return `
 <style>
   :root { color-scheme: light dark; }
-  body { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; margin: 0; padding: 12px; }
-  .container { border: 1px solid rgba(0,0,0,.12); border-radius: 14px; padding: 16px; background: rgba(255,255,255,0.05); }
-  .btn { padding: 8px 12px; border-radius: 10px; border: 1px solid rgba(0,0,0,.18); background: #fff; cursor: pointer; transition: 0.2s; }
-  .btn:hover { background: #f0f0f0; }
-  .card { flex: 0 0 100px; padding: 12px; border: 1px solid rgba(0,0,0,.08); border-radius: 12px; text-align: center; background: rgba(255,255,255,0.2); cursor: pointer; }
-  .graph { font-family: monospace; font-size: 11px; margin: 12px 0; padding: 10px; background: rgba(0,0,0,.03); border-radius: 10px; overflow-x: auto; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 12px; }
+  .container { border: 1px solid rgba(0,0,0,.1); border-radius: 16px; padding: 16px; background: rgba(255,255,255,0.05); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+  .btn { padding: 8px 14px; border-radius: 10px; border: 1px solid rgba(0,0,0,.15); background: #fff; color: #000; cursor: pointer; font-size: 14px; font-weight: 500; }
+  .card { flex: 0 0 100px; padding: 12px; border: 1px solid rgba(0,0,0,.08); border-radius: 14px; text-align: center; background: rgba(255,255,255,0.3); transition: transform 0.2s; cursor: pointer; }
+  .card:active { transform: scale(0.95); }
+  .chart-container { margin: 16px 0; display: flex; align-items: flex-end; gap: 4px; height: 60px; padding: 0 4px; }
+  .chart-bar { flex: 1; background: linear-gradient(to top, #4dabf7, #ff922b); border-radius: 4px 4px 2px 2px; position: relative; min-height: 4px; }
+  .detail-panel { margin-top: 12px; padding: 14px; border-radius: 12px; background: rgba(0,0,0,0.04); font-size: 13px; line-height: 1.6; display: none; }
   @media (prefers-color-scheme: dark) {
     body { color: #eee; }
-    .container { border-color: rgba(255,255,255,0.15); background: rgba(0,0,0,0.2); }
+    .container { border-color: rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); }
     .btn { background: #444; color: #fff; border-color: rgba(255,255,255,0.1); }
     .card { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
-    .graph { background: rgba(255,255,255,0.05); }
+    .detail-panel { background: rgba(255,255,255,0.05); }
   }
 </style>
 
 <div class="container">
   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
     <div>
-      <div style="font-size:14px; opacity:0.7;">天気予報</div>
+      <div style="font-size:13px; opacity:0.6; margin-bottom:2px;">天気予報</div>
       <div id="headline" style="font-size:20px; font-weight:700;">読み込み中...</div>
     </div>
     <button id="refresh" class="btn">更新</button>
   </div>
   <div id="panel"></div>
+  <div id="detail" class="detail-panel"></div>
 </div>
 
 <script type="module">
   const headline = document.getElementById("headline");
   const panel = document.getElementById("panel");
+  const detail = document.getElementById("detail");
   const btn = document.getElementById("refresh");
 
   function render(data) {
@@ -102,6 +106,7 @@ function widgetHtml() {
 
     if (candidates.length > 0) {
       headline.textContent = (out.query || "場所") + " の候補";
+      detail.style.display = "none";
       panel.innerHTML = '<div id="list" style="display:grid; gap:8px;"></div>';
       const list = panel.querySelector("#list");
       candidates.forEach(c => {
@@ -123,41 +128,47 @@ function widgetHtml() {
       headline.textContent = loc.name || loc.label || "天気予報";
       panel.innerHTML = "";
 
-      // グラフ描画
-      try {
-        const temps = daily.map(d => d.temp_max_c).filter(t => !isNaN(t));
-        const minT = Math.floor(Math.min(...temps));
-        const maxT = Math.ceil(Math.max(...temps));
-        const range = maxT - minT || 1;
-        const g = document.createElement("div");
-        g.className = "graph";
-        let gt = "気温推移\\n";
-        for (let r = 0; r < 5; r++) {
-          const th = maxT - (r / 5) * range;
-          let line = "";
-          for (let c = 0; c < temps.length; c++) line += (temps[c] >= th - range/10) ? "█" : " ";
-          gt += line + "\\n";
-        }
-        gt += daily.map(d => d.date.split("-")[2]).join("");
-        g.textContent = gt;
-        panel.appendChild(g);
-      } catch(e) {}
+      // ビジュアルグラフ
+      const temps = daily.map(d => d.temp_max_c).filter(t => !isNaN(t));
+      const minT = Math.min(...temps);
+      const maxT = Math.max(...temps);
+      const range = (maxT - minT) || 1;
+
+      const chart = document.createElement("div");
+      chart.className = "chart-container";
+      daily.forEach(d => {
+        const bar = document.createElement("div");
+        bar.className = "chart-bar";
+        const height = ((d.temp_max_c - minT) / range * 80) + 20;
+        bar.style.height = height + "%";
+        bar.title = d.temp_max_c + "°";
+        chart.appendChild(bar);
+      });
+      panel.appendChild(chart);
 
       // スクロールカード
       const scroll = document.createElement("div");
-      scroll.style.cssText = "display:flex; gap:12px; overflow-x:auto; padding:4px 0;";
+      scroll.style.cssText = "display:flex; gap:10px; overflow-x:auto; padding:4px 0; -webkit-overflow-scrolling: touch;";
       daily.forEach(d => {
         const c = document.createElement("div");
         c.className = "card";
         const date = d.date ? d.date.split("-")[2] : "-";
         const day = ["日","月","火","水","木","金","土"][new Date(d.date).getDay()];
-        c.innerHTML = '<div style="font-size:12px; opacity:0.6;">' + date + ' (' + day + ')</div>' +
+        c.innerHTML = '<div style="font-size:11px; opacity:0.6;">' + date + ' (' + day + ')</div>' +
                       '<div style="font-size:18px; margin:8px 0;">' + d.summary_ja + '</div>' +
                       '<div style="font-weight:700; font-size:16px;">' + d.temp_max_c + '°</div>' +
-                      '<div style="font-size:11px; margin-top:4px; opacity:0.7;">☔ ' + d.precip_prob_max_percent + '%</div>';
+                      '<div style="font-size:10px; margin-top:4px; opacity:0.7;">☔ ' + d.precip_prob_max_percent + '%</div>';
         
         c.onclick = () => {
-          alert(d.date + "の予報: " + d.summary_ja + "\\n気温: " + d.temp_min_c + "〜" + d.temp_max_c + "℃\\n降水確率: " + d.precip_prob_max_percent + "%");
+          detail.style.display = "block";
+          detail.innerHTML = '<div style="font-weight:700; margin-bottom:6px; font-size:14px;">' + d.date + ' (' + day + ') の詳細</div>' +
+                             '<div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">' +
+                             '<div>🌡 気温: ' + d.temp_min_c + '〜' + d.temp_max_c + '℃</div>' +
+                             '<div>☔ 降水確率: ' + d.precip_prob_max_percent + '%</div>' +
+                             '<div>💧 降水量: ' + (d.precip_sum_mm || 0) + 'mm</div>' +
+                             '<div>💨 最大風速: ' + (d.windspeed_max_kmh || "-") + 'km/h</div>' +
+                             '</div>';
+          detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         };
         scroll.appendChild(c);
       });
