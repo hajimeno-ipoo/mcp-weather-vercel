@@ -335,9 +335,26 @@ function widgetHtml() {
   init();
 
   btn.onclick = async () => {
-    headline.textContent = "更新中...";
-    const next = await window.openai.callTool("get_forecast", window.openai.toolInput);
-    render(next);
+    const originalText = headline.textContent;
+    try {
+      headline.textContent = "更新中...";
+      // toolInput が存在しない場合や不完全な場合のフォールバック
+      const input = window.openai.toolInput || {};
+      if (!input.latitude || !input.longitude) {
+        throw new Error("位置情報が見つかりません");
+      }
+      
+      const next = await window.openai.callTool("get_forecast", input);
+      if (next) {
+        render(next);
+      } else {
+        throw new Error("データの取得に失敗しました");
+      }
+    } catch (e) {
+      console.error("Update error:", e);
+      headline.textContent = "更新失敗: " + originalText;
+      setTimeout(() => { headline.textContent = originalText; }, 2000);
+    }
   };
 
   window.addEventListener("openai:set_globals", () => render(window.openai.toolOutput));
