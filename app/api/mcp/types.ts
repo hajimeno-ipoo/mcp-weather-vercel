@@ -62,6 +62,8 @@ export interface DailyForecast {
   temp_max_c: number;
   temp_min_c: number;
   precip_prob_max_percent: number;
+  precip_sum_mm?: number;
+  windspeed_max_kmh?: number;
 }
 
 /**
@@ -131,6 +133,8 @@ export interface OpenMeteoForecastResponse {
     temperature_2m_max?: number[];
     temperature_2m_min?: number[];
     precipitation_probability_max?: number[];
+    precipitation_sum?: number[];
+    windspeed_10m_max?: number[];
   };
 }
 

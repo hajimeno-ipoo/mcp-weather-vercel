@@ -50,7 +50,7 @@ async function forecastByCoords(lat: number, lon: number, days: number): Promise
   url.searchParams.set("timezone", "Asia/Tokyo");
   url.searchParams.set("current_weather", "true");
   url.searchParams.set("forecast_days", String(days));
-  url.searchParams.set("daily", ["weathercode", "temperature_2m_max", "temperature_2m_min", "precipitation_probability_max"].join(","));
+  url.searchParams.set("daily", ["weathercode", "temperature_2m_max", "temperature_2m_min", "precipitation_probability_max", "precipitation_sum", "windspeed_10m_max"].join(","));
   const r = await fetch(url.toString());
   if (!r.ok) throw new APIError("FC_ERR", `HTTP ${r.status}`);
   const data: OpenMeteoForecastResponse = await r.json();
@@ -62,20 +62,27 @@ function widgetHtml() {
   return `
 <style>
   :root { color-scheme: light dark; }
-  body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 12px; background: transparent; }
-  .container { border: 1px solid rgba(0,0,0,.1); border-radius: 12px; padding: 14px; background: rgba(255,255,255,0.05); backdrop-filter: blur(10px); }
-  .btn { padding: 8px 16px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.1); background: #fff; color: #000; cursor: pointer; font-size: 14px; }
-  .card { flex: 0 0 90px; padding: 10px; border: 1px solid rgba(0,0,0,0.05); border-radius: 10px; text-align: center; background: rgba(255,255,255,0.1); }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; margin: 0; padding: 12px; }
+  .container { border: 1px solid rgba(0,0,0,.12); border-radius: 14px; padding: 16px; background: rgba(255,255,255,0.05); }
+  .btn { padding: 8px 12px; border-radius: 10px; border: 1px solid rgba(0,0,0,.18); background: #fff; cursor: pointer; transition: 0.2s; }
+  .btn:hover { background: #f0f0f0; }
+  .card { flex: 0 0 100px; padding: 12px; border: 1px solid rgba(0,0,0,.08); border-radius: 12px; text-align: center; background: rgba(255,255,255,0.2); cursor: pointer; }
+  .graph { font-family: monospace; font-size: 11px; margin: 12px 0; padding: 10px; background: rgba(0,0,0,.03); border-radius: 10px; overflow-x: auto; }
   @media (prefers-color-scheme: dark) {
-    .container { border-color: rgba(255,255,255,0.1); }
-    .btn { background: #333; color: #fff; border-color: rgba(255,255,255,0.1); }
+    body { color: #eee; }
+    .container { border-color: rgba(255,255,255,0.15); background: rgba(0,0,0,0.2); }
+    .btn { background: #444; color: #fff; border-color: rgba(255,255,255,0.1); }
     .card { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
+    .graph { background: rgba(255,255,255,0.05); }
   }
 </style>
 
 <div class="container">
   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-    <div id="headline" style="font-size:18px; font-weight:700;">読み込み中...</div>
+    <div>
+      <div style="font-size:14px; opacity:0.7;">天気予報</div>
+      <div id="headline" style="font-size:20px; font-weight:700;">読み込み中...</div>
+    </div>
     <button id="refresh" class="btn">更新</button>
   </div>
   <div id="panel"></div>
@@ -94,7 +101,7 @@ function widgetHtml() {
     const loc = out.location || {};
 
     if (candidates.length > 0) {
-      headline.textContent = (out.query || "場所") + "の候補";
+      headline.textContent = (out.query || "場所") + " の候補";
       panel.innerHTML = '<div id="list" style="display:grid; gap:8px;"></div>';
       const list = panel.querySelector("#list");
       candidates.forEach(c => {
@@ -114,21 +121,50 @@ function widgetHtml() {
       });
     } else if (daily.length > 0) {
       headline.textContent = loc.name || loc.label || "天気予報";
-      panel.innerHTML = '<div id="scroll" style="display:flex; gap:10px; overflow-x:auto; padding-bottom:8px;"></div>';
-      const scroll = panel.querySelector("#scroll");
+      panel.innerHTML = "";
+
+      // グラフ描画
+      try {
+        const temps = daily.map(d => d.temp_max_c).filter(t => !isNaN(t));
+        const minT = Math.floor(Math.min(...temps));
+        const maxT = Math.ceil(Math.max(...temps));
+        const range = maxT - minT || 1;
+        const g = document.createElement("div");
+        g.className = "graph";
+        let gt = "気温推移\\n";
+        for (let r = 0; r < 5; r++) {
+          const th = maxT - (r / 5) * range;
+          let line = "";
+          for (let c = 0; c < temps.length; c++) line += (temps[c] >= th - range/10) ? "█" : " ";
+          gt += line + "\\n";
+        }
+        gt += daily.map(d => d.date.split("-")[2]).join("");
+        g.textContent = gt;
+        panel.appendChild(g);
+      } catch(e) {}
+
+      // スクロールカード
+      const scroll = document.createElement("div");
+      scroll.style.cssText = "display:flex; gap:12px; overflow-x:auto; padding:4px 0;";
       daily.forEach(d => {
         const c = document.createElement("div");
         c.className = "card";
         const date = d.date ? d.date.split("-")[2] : "-";
-        c.innerHTML = '<div style="font-size:12px; opacity:0.8;">' + date + '日</div>' +
-                      '<div style="font-size:16px; margin:6px 0;">' + d.summary_ja + '</div>' +
-                      '<div style="font-weight:700; font-size:15px;">' + d.temp_max_c + '°</div>';
+        const day = ["日","月","火","水","木","金","土"][new Date(d.date).getDay()];
+        c.innerHTML = '<div style="font-size:12px; opacity:0.6;">' + date + ' (' + day + ')</div>' +
+                      '<div style="font-size:18px; margin:8px 0;">' + d.summary_ja + '</div>' +
+                      '<div style="font-weight:700; font-size:16px;">' + d.temp_max_c + '°</div>' +
+                      '<div style="font-size:11px; margin-top:4px; opacity:0.7;">☔ ' + d.precip_prob_max_percent + '%</div>';
+        
+        c.onclick = () => {
+          alert(d.date + "の予報: " + d.summary_ja + "\\n気温: " + d.temp_min_c + "〜" + d.temp_max_c + "℃\\n降水確率: " + d.precip_prob_max_percent + "%");
+        };
         scroll.appendChild(c);
       });
+      panel.appendChild(scroll);
     }
   }
 
-  // データの監視
   const init = () => {
     const out = window.openai?.toolOutput;
     if (out) render(out);
@@ -193,6 +229,8 @@ const handler = createMcpHandler(
       const daily = (f.daily?.time ?? []).map((d, i) => ({
         date: d, summary_ja: wmoToJa(f.daily?.weathercode?.[i]),
         temp_max_c: f.daily?.temperature_2m_max?.[i], temp_min_c: f.daily?.temperature_2m_min?.[i],
+        precip_prob_max_percent: f.daily?.precipitation_probability_max?.[i],
+        precip_sum_mm: f.daily?.precipitation_sum?.[i], windspeed_max_kmh: f.daily?.windspeed_10m_max?.[i],
       }));
       return { structuredContent: { kind: "forecast", location: { name: input.label }, daily }, content: [{ type: "text", text: "天気を取得しました" }] };
     });
