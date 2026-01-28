@@ -86,7 +86,7 @@ function widgetHtml() {
   .card:active { transform: scale(0.95); }
   .chart-wrapper { margin: 25px 0 15px 0; background: rgba(0,0,0,0.02); border-radius: 12px; padding: 40px 10px 25px 10px; position: relative; }
   .chart-y-axis { position: absolute; left: 8px; top: 40px; bottom: 65px; width: 32px; display: flex; flex-direction: column; justify-content: space-between; font-size: 8px; color: #666; text-align: right; padding-right: 6px; border-right: 1px solid rgba(0,0,0,0.15); pointer-events: none; }
-  .chart-area { margin-left: 40px; margin-right: 10px; height: 220px; position: relative; }
+  .chart-area { margin-left: 40px; margin-right: 10px; height: 320px; position: relative; }
   .chart-x-axis { margin-left: 40px; margin-right: 10px; display: grid; grid-template-columns: repeat(7, 1fr); margin-top: 15px; font-size: 8px; color: #666; }
   .detail-panel { margin-top: 12px; padding: 14px; border-radius: 12px; background: rgba(0,0,0,0.04); font-size: 13px; line-height: 1.6; display: none; }
 
@@ -207,8 +207,8 @@ function widgetHtml() {
 
     // グラフ描画
     try {
-      const maxT = 30;
-      const minT = -15;
+      const maxT = 45;
+      const minT = -20;
       const range = maxT - minT;
 
       const chartWrapper = document.createElement("div");
@@ -238,7 +238,11 @@ function widgetHtml() {
       const grad = document.createElementNS(svgNS, "linearGradient");
       grad.setAttribute("id", "tempGrad");
       grad.setAttribute("x1", "0%"); grad.setAttribute("y1", "0%"); grad.setAttribute("x2", "0%"); grad.setAttribute("y2", "100%");
-      grad.innerHTML = '<stop offset="0%" style="stop-color:#ff922b;stop-opacity:0.3" /><stop offset="100%" style="stop-color:#339af0;stop-opacity:0.3" />';
+      const zeroOffset = (maxT / (maxT - minT)) * 100;
+      grad.innerHTML = '<stop offset="0%" style="stop-color:#ff922b;stop-opacity:0.3" />' +
+                       '<stop offset="' + zeroOffset + '%" style="stop-color:#ff922b;stop-opacity:0.3" />' +
+                       '<stop offset="' + zeroOffset + '%" style="stop-color:#339af0;stop-opacity:0.3" />' +
+                       '<stop offset="100%" style="stop-color:#339af0;stop-opacity:0.3" />';
       defs.appendChild(grad);
       svg.appendChild(defs);
 
@@ -380,7 +384,7 @@ function widgetHtml() {
           const stats = [
             { label: '🌡 気温', value: d.temp_min_c + '〜' + d.temp_max_c + '℃' },
             { label: '☔ 降水確率', value: d.precip_prob_max_percent + '%' },
-            { label: '💧 降水量', value: (d.precip_sum_mm || 0) + 'mm' },
+            { label: '☔ 降水量', value: (d.precip_sum_mm || 0) + 'mm' },
             { label: '💨 最大風速', value: (d.windspeed_max_kmh || "-") + 'km/h' }
           ];
 
