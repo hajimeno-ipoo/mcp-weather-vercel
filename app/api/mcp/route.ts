@@ -422,7 +422,7 @@ function widgetHtml() {
               
               const probDiv = document.createElement("div");
               probDiv.style.cssText = "font-size:10px; font-weight:600; color: #1c7ed6;";
-              probDiv.textContent = '💧 ' + d.hourly.precipitation_probability[i] + '%';
+              probDiv.textContent = '☔ ' + d.hourly.precipitation_probability[i] + '%';
               
               item.appendChild(timeDiv);
               item.appendChild(iconDiv);
