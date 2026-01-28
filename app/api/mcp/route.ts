@@ -89,14 +89,6 @@ function widgetHtml() {
   .chart-area { margin-left: 40px; margin-right: 10px; height: 220px; position: relative; }
   .chart-x-axis { margin-left: 40px; margin-right: 10px; display: grid; grid-template-columns: repeat(7, 1fr); margin-top: 15px; font-size: 8px; color: #666; }
   .detail-panel { margin-top: 12px; padding: 14px; border-radius: 12px; background: rgba(0,0,0,0.04); font-size: 13px; line-height: 1.6; display: none; }
-  .hourly-container { display: flex; gap: 10px; overflow-x: auto; padding: 4px 6px 14px 6px; margin: 12px -6px 0 -6px; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; scroll-snap-type: x mandatory; }
-  .hourly-item { flex: 0 0 75px; scroll-snap-align: start; text-align: center; font-size: 12px; background: #fff; padding: 12px 6px; border-radius: 14px; border: 1px solid rgba(0,0,0,0.08); box-shadow: 0 2px 6px rgba(0,0,0,0.04); transition: transform 0.1s; }
-  .hourly-item:active { transform: scale(0.96); }
-  .hourly-time { opacity: 0.6; margin-bottom: 6px; font-size: 11px; font-weight: 600; }
-  .hourly-icon { font-size: 24px; margin: 8px 0; display: block; }
-  .hourly-temp { font-weight: 800; font-size: 15px; margin-bottom: 4px; color: #222; }
-  .hourly-prob { font-size: 10px; color: #1c7ed6; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 2px; }
-  .hourly-prob::before { content: '💧'; font-size: 8px; }
 
   @media (prefers-color-scheme: dark) {
     body { color: #eee; }
@@ -107,7 +99,6 @@ function widgetHtml() {
     .chart-y-axis { border-color: rgba(255,255,255,0.2); color: #999; }
     .chart-x-axis { color: #999; }
     .detail-panel { background: rgba(255,255,255,0.1); }
-    .hourly-item { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.1); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
     .hourly-temp { color: #fff; }
     .hourly-prob { color: #74c0fc; }
   }
@@ -376,36 +367,71 @@ function widgetHtml() {
           c.classList.add("active");
           detail.style.display = "block";
           
-          let hourlyHtml = "";
+          detail.innerHTML = "";
+          
+          const header = document.createElement("div");
+          header.style.cssText = "font-weight:700; margin-bottom:12px; font-size:14px; color: inherit;";
+          header.textContent = d.date + ' (' + day + ') の詳細';
+          detail.appendChild(header);
+
+          const grid = document.createElement("div");
+          grid.style.cssText = "display:grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; font-size: 13px; opacity: 0.9;";
+          
+          const stats = [
+            { label: '🌡 気温', value: d.temp_min_c + '〜' + d.temp_max_c + '℃' },
+            { label: '☔ 降水確率', value: d.precip_prob_max_percent + '%' },
+            { label: '💧 降水量', value: (d.precip_sum_mm || 0) + 'mm' },
+            { label: '💨 最大風速', value: (d.windspeed_max_kmh || "-") + 'km/h' }
+          ];
+
+          stats.forEach(item => {
+            const div = document.createElement("div");
+            div.textContent = item.label + ': ' + item.value;
+            grid.appendChild(div);
+          });
+          detail.appendChild(grid);
+
           if (d.hourly && d.hourly.time) {
-            hourlyHtml += '<div style="border-top:1px solid rgba(255,255,255,0.1); padding-top:12px;">' +
-                          '<div style="font-size:12px; margin-bottom:8px; opacity:0.8;">時間別予報</div>' +
-                          '<div class="hourly-container">';
+            const hTitle = document.createElement("div");
+            hTitle.style.cssText = "font-size:12px; margin-bottom:12px; opacity:0.6; font-weight:600; border-top:1px solid rgba(128,128,128,0.2); padding-top:12px;";
+            hTitle.textContent = "時間別予報";
+            detail.appendChild(hTitle);
+
+            const hContainer = document.createElement("div");
+            hContainer.style.cssText = "display:flex; flex-direction:row; gap:10px; overflow-x:auto; padding:4px 0 16px 0; margin:0 -4px; -webkit-overflow-scrolling:touch; scroll-snap-type:x mandatory; white-space:nowrap;";
+            
             d.hourly.time.forEach((t, i) => {
               const timeObj = new Date(t);
               const timeStr = String(timeObj.getHours()).padStart(2, '0') + ":00";
-              const code = d.hourly.weathercode[i];
-              const temp = d.hourly.temperature_2m[i];
-              const prob = d.hourly.precipitation_probability[i];
-              const icon = wmoToIcon(code);
+              const item = document.createElement("div");
+              const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
               
-              hourlyHtml += '<div class="hourly-item">' +
-                            '<div class="hourly-time">' + timeStr + '</div>' +
-                            '<div class="hourly-icon">' + icon + '</div>' +
-                            '<div class="hourly-temp">' + temp + '°</div>' +
-                            '<div class="hourly-prob">' + prob + '%</div>' +
-                            '</div>';
+              item.style.cssText = "flex: 0 0 75px; scroll-snap-align: start; text-align: center; padding: 12px 6px; border-radius: 14px; border: 1px solid rgba(128,128,128,0.2); background: " + (isDark ? 'rgba(255,255,255,0.08)' : '#ffffff') + "; box-shadow: 0 2px 6px rgba(0,0,0,0.05); display: inline-block; vertical-align: top;";
+              
+              const timeDiv = document.createElement("div");
+              timeDiv.style.cssText = "opacity:0.6; margin-bottom:6px; font-size:11px; font-weight:600;";
+              timeDiv.textContent = timeStr;
+              
+              const iconDiv = document.createElement("div");
+              iconDiv.style.cssText = "font-size:24px; margin:8px 0;";
+              iconDiv.textContent = wmoToIcon(d.hourly.weathercode[i]);
+              
+              const tempDiv = document.createElement("div");
+              tempDiv.style.cssText = "font-weight:800; font-size:15px; margin-bottom:4px;";
+              tempDiv.textContent = d.hourly.temperature_2m[i] + '°';
+              
+              const probDiv = document.createElement("div");
+              probDiv.style.cssText = "font-size:10px; font-weight:600; color: #1c7ed6;";
+              probDiv.textContent = '💧 ' + d.hourly.precipitation_probability[i] + '%';
+              
+              item.appendChild(timeDiv);
+              item.appendChild(iconDiv);
+              item.appendChild(tempDiv);
+              item.appendChild(probDiv);
+              hContainer.appendChild(item);
             });
-            hourlyHtml += '</div></div>';
+            detail.appendChild(hContainer);
           }
-
-          detail.innerHTML = '<div style="font-weight:700; margin-bottom:6px; font-size:14px;">' + d.date + ' (' + day + ') の詳細</div>' +
-                             '<div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">' +
-                             '<div>🌡 気温: ' + d.temp_min_c + '〜' + d.temp_max_c + '℃</div>' +
-                             '<div>☔ 降水確率: ' + d.precip_prob_max_percent + '%</div>' +
-                             '<div>💧 降水量: ' + (d.precip_sum_mm || 0) + 'mm</div>' +
-                             '<div>💨 最大風速: ' + (d.windspeed_max_kmh || "-") + 'km/h</div>' +
-                             '</div>' + hourlyHtml;
           detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
       };
