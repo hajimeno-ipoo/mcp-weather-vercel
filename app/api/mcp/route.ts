@@ -20,6 +20,19 @@ function wmoToJa(code: number | null | undefined) {
   return WMO_JA[code] ?? `不明（code=${code}）`;
 }
 
+function wmoToIcon(code: number | null | undefined) {
+  if (code === null || code === undefined) return "❓";
+  if (code === 0) return "☀️";
+  if (code >= 1 && code <= 3) return "🌤️";
+  if (code === 45 || code === 48) return "🌫️";
+  if (code >= 51 && code <= 55) return "🌦️";
+  if (code >= 61 && code <= 65) return "🌧️";
+  if (code >= 71 && code <= 75) return "❄️";
+  if (code >= 80 && code <= 82) return "🌦️";
+  if (code >= 95) return "⛈️";
+  return "☁️";
+}
+
 async function geocodeCandidates(place: string, count: number): Promise<GeoCandidate[]> {
   const cacheKey = generateGeocodeKey(place, count);
   const cached = geocodeCache.get(cacheKey);
@@ -317,10 +330,10 @@ function widgetHtml() {
       if (activeDate === d.date) c.classList.add("active");
       const date = d.date ? d.date.split("-")[2] : "-";
       const day = ["日","月","火","水","木","金","土"][new Date(d.date).getDay()];
-      c.innerHTML = '<div style="font-size:11px; opacity:0.6;">' + date + ' (' + day + ')</div>' +
-                    '<div style="font-size:18px; margin:8px 0;">' + d.summary_ja + '</div>' +
-                    '<div style="font-weight:700; font-size:16px;">' + d.temp_max_c + '° / ' + d.temp_min_c + '°</div>' +
-                    '<div style="font-size:10px; margin-top:4px; opacity:0.7;">☔ ' + d.precip_prob_max_percent + '%</div>';
+      c.innerHTML = '<div style="font-size:11px; opacity:0.6; margin-bottom:6px;">' + date + ' (' + day + ')</div>' +
+                    '<div style="font-size:24px; margin-bottom:4px;">' + (d.icon || "☁️") + '</div>' +
+                    '<div style="font-size:12px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:8px;">' + d.summary_ja + '</div>' +
+                    '<div style="font-weight:700; font-size:14px;">' + d.temp_max_c + '° / ' + d.temp_min_c + '°</div>';
       
       c.onclick = () => {
         if (activeDate === d.date) {
@@ -424,10 +437,14 @@ const handler = createMcpHandler(
     }, async (input: any) => {
       const f = await forecastByCoords(input.latitude, input.longitude, input.days);
       const daily = (f.daily?.time ?? []).map((d, i) => ({
-        date: d, summary_ja: wmoToJa(f.daily?.weathercode?.[i]),
-        temp_max_c: f.daily?.temperature_2m_max?.[i], temp_min_c: f.daily?.temperature_2m_min?.[i],
+        date: d, 
+        summary_ja: wmoToJa(f.daily?.weathercode?.[i]),
+        icon: wmoToIcon(f.daily?.weathercode?.[i]),
+        temp_max_c: f.daily?.temperature_2m_max?.[i], 
+        temp_min_c: f.daily?.temperature_2m_min?.[i],
         precip_prob_max_percent: f.daily?.precipitation_probability_max?.[i],
-        precip_sum_mm: f.daily?.precipitation_sum?.[i], windspeed_max_kmh: f.daily?.windspeed_10m_max?.[i],
+        precip_sum_mm: f.daily?.precipitation_sum?.[i], 
+        windspeed_max_kmh: f.daily?.windspeed_10m_max?.[i],
       }));
       return { 
         structuredContent: { 
