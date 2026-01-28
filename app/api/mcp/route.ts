@@ -237,8 +237,10 @@ function widgetHtml() {
       const defs = document.createElementNS(svgNS, "defs");
       const grad = document.createElementNS(svgNS, "linearGradient");
       grad.setAttribute("id", "tempGrad");
-      grad.setAttribute("x1", "0%"); grad.setAttribute("y1", "0%"); grad.setAttribute("x2", "0%"); grad.setAttribute("y2", "100%");
       const zeroOffset = (maxT / (maxT - minT)) * 100;
+      grad.setAttribute("gradientUnits", "userSpaceOnUse");
+      grad.setAttribute("x1", "0%"); grad.setAttribute("y1", "0");
+      grad.setAttribute("x2", "0%"); grad.setAttribute("y2", "1000");
       grad.innerHTML = '<stop offset="0%" style="stop-color:#ff922b;stop-opacity:0.3" />' +
                        '<stop offset="' + zeroOffset + '%" style="stop-color:#ff922b;stop-opacity:0.3" />' +
                        '<stop offset="' + zeroOffset + '%" style="stop-color:#339af0;stop-opacity:0.3" />' +
