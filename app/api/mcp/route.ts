@@ -141,11 +141,12 @@ function widgetHtml() {
           b.className = "btn";
           b.style.width = "100%";
           b.style.textAlign = "left";
-          b.textContent = c.name + (c.admin1 ? " (" + c.admin1 + ")" : "");
+          const fullLabel = (c.admin1 ? c.admin1 + " " : "") + c.name;
+          b.textContent = fullLabel;
           b.onclick = async () => {
             headline.textContent = "取得中...";
             const next = await window.openai.callTool("get_forecast", {
-              latitude: c.latitude, longitude: c.longitude, days: 7, label: c.name
+              latitude: c.latitude, longitude: c.longitude, days: 7, label: fullLabel
             });
             render(next);
           };
