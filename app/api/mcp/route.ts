@@ -89,6 +89,15 @@ function widgetHtml() {
   .chart-area { margin-left: 40px; margin-right: 10px; height: 220px; position: relative; }
   .chart-x-axis { margin-left: 40px; margin-right: 10px; display: grid; grid-template-columns: repeat(7, 1fr); margin-top: 15px; font-size: 8px; color: #666; }
   .detail-panel { margin-top: 12px; padding: 14px; border-radius: 12px; background: rgba(0,0,0,0.04); font-size: 13px; line-height: 1.6; display: none; }
+  .hourly-container { display: flex; gap: 10px; overflow-x: auto; padding: 4px 6px 14px 6px; margin: 12px -6px 0 -6px; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; scroll-snap-type: x mandatory; }
+  .hourly-item { flex: 0 0 75px; scroll-snap-align: start; text-align: center; font-size: 12px; background: #fff; padding: 12px 6px; border-radius: 14px; border: 1px solid rgba(0,0,0,0.08); box-shadow: 0 2px 6px rgba(0,0,0,0.04); transition: transform 0.1s; }
+  .hourly-item:active { transform: scale(0.96); }
+  .hourly-time { opacity: 0.6; margin-bottom: 6px; font-size: 11px; font-weight: 600; }
+  .hourly-icon { font-size: 24px; margin: 8px 0; display: block; }
+  .hourly-temp { font-weight: 800; font-size: 15px; margin-bottom: 4px; color: #222; }
+  .hourly-prob { font-size: 10px; color: #1c7ed6; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 2px; }
+  .hourly-prob::before { content: '💧'; font-size: 8px; }
+
   @media (prefers-color-scheme: dark) {
     body { color: #eee; }
     .container { border-color: rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); }
@@ -97,23 +106,10 @@ function widgetHtml() {
     .chart-wrapper { background: rgba(255,255,255,0.03); }
     .chart-y-axis { border-color: rgba(255,255,255,0.2); color: #999; }
     .chart-x-axis { color: #999; }
-    .detail-panel { background: rgba(255,255,255,0.05); }
-  .hourly-container { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-top: 12px; scroll-behavior: smooth; }
-  .hourly-item { flex: 0 0 60px; text-align: center; font-size: 12px; background: rgba(255,255,255,0.05); padding: 8px 4px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); }
-  .hourly-time { opacity: 0.7; margin-bottom: 4px; font-size: 11px; }
-  .hourly-icon { font-size: 20px; margin: 4px 0; }
-  .hourly-temp { font-weight: bold; margin-bottom: 2px; }
-  .hourly-prob { font-size: 10px; color: #74c0fc; }
-  @media (prefers-color-scheme: dark) {
-    body { color: #eee; }
-    .container { border-color: rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); }
-    .btn { background: #444; color: #fff; border-color: rgba(255,255,255,0.1); }
-    .card { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
-    .chart-wrapper { background: rgba(255,255,255,0.03); }
-    .chart-y-axis { border-color: rgba(255,255,255,0.2); color: #999; }
-    .chart-x-axis { color: #999; }
-    .detail-panel { background: rgba(255,255,255,0.05); }
-    .hourly-item { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
+    .detail-panel { background: rgba(255,255,255,0.1); }
+    .hourly-item { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.1); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+    .hourly-temp { color: #fff; }
+    .hourly-prob { color: #74c0fc; }
   }
 </style>
 
