@@ -14,4 +14,8 @@
 - [x] ドキュメント更新（walkthrough.md, task.md）
 - [x] Implement `hourly` data mapping in `get_forecast` tool <!-- id: 2 -->
 - [x] Update `widgetHtml` to render hourly temperature chart <!-- id: 3 -->
+- [x] 降水確率アイコンの統一（💧 → ☔）
+- [x] 降水量データの正確性調査（事実確認済み）
 - [x] Verify implementation (Network issues in local env confirmed independent of code) <!-- id: 4 -->
+- [x] 事実調査スキルの正式な定義 (SKILL.md) の作成
+- [x] プロジェクト概要 (FOR[hazimeno_ipoo].md) の作成
