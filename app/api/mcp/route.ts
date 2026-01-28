@@ -105,240 +105,35 @@ function widgetHtml() {
 
   let activeDate = null;
   let lastValidInput = null;
+  let currentViewData = null;
 
   function render(data) {
-    // データの構造から緯度・経度を抽出して保存（更新ボタン用）
+    if (!data) return;
+    
     try {
       const out = data?.structuredContent || data;
-      // get_forecast の結果から位置情報を保存
+      // 位置情報を保存（更新ボタン用）
       if (out?.location?.latitude && out?.location?.longitude) {
         lastValidInput = {
           latitude: out.location.latitude,
           longitude: out.location.longitude,
           label: out.location.name || out.location.label
         };
-      } 
-      // toolInput が利用可能な場合も上書き保存
-      else if (window.openai?.toolInput?.latitude) {
+      } else if (window.openai?.toolInput?.latitude) {
         lastValidInput = window.openai.toolInput;
       }
-    } catch(e) { console.error("Input save error:", e); }
+      
+      // 現在の表示データを保存（再描画用）
+      currentViewData = data;
 
-    try {
-      if (!data) return;
-      const out = data.structuredContent || data;
       const candidates = out.candidates || [];
       const daily = out.daily || [];
-      const loc = out.location || {};
 
-      if (candidates.length > 0) {
-        headline.textContent = (out.query || "場所") + " の候補";
-        detail.style.display = "none";
-        panel.innerHTML = '<div id="list" style="display:grid; gap:8px;"></div>';
-        const list = panel.querySelector("#list");
-        candidates.forEach(c => {
-          const b = document.createElement("button");
-          b.className = "btn";
-          b.style.width = "100%";
-          b.style.textAlign = "left";
-          const fullLabel = (c.admin1 ? c.admin1 + " " : "") + c.name;
-          b.textContent = fullLabel;
-          b.onclick = async () => {
-            headline.textContent = "取得中...";
-            const next = await window.openai.callTool("get_forecast", {
-              latitude: c.latitude, longitude: c.longitude, days: 7, label: fullLabel
-            });
-            render(next);
-          };
-          list.appendChild(b);
-        });
-      } else if (daily.length > 0) {
-        headline.textContent = loc.name || loc.label || "天気予報";
-        panel.innerHTML = "";
-
-        // グラフ描画
-        try {
-          // 固定スケール: -15度 〜 30度
-          const maxT = 30;
-          const minT = -15;
-          const range = maxT - minT;
-
-          const chartWrapper = document.createElement("div");
-          chartWrapper.className = "chart-wrapper";
-
-          // Y軸ラベル (5度刻みで表示)
-          const yAxis = document.createElement("div");
-          yAxis.className = "chart-y-axis";
-          let yLabels = "";
-          for (let t = maxT; t >= minT; t -= 5) {
-            yLabels += '<span>' + t + '°</span>';
-          }
-          yAxis.innerHTML = yLabels;
-          chartWrapper.appendChild(yAxis);
-
-          const chartArea = document.createElement("div");
-          chartArea.className = "chart-area";
-          
-          const svgNS = "http://www.w3.org/2000/svg";
-          const svg = document.createElementNS(svgNS, "svg");
-          svg.setAttribute("width", "100%");
-          svg.setAttribute("height", "100%");
-          svg.setAttribute("viewBox", "0 0 1000 1000");
-          svg.setAttribute("preserveAspectRatio", "none");
-          svg.style.overflow = "visible";
-
-          const defs = document.createElementNS(svgNS, "defs");
-          const grad = document.createElementNS(svgNS, "linearGradient");
-          grad.setAttribute("id", "tempGrad");
-          grad.setAttribute("x1", "0%"); grad.setAttribute("y1", "0%"); grad.setAttribute("x2", "0%"); grad.setAttribute("y2", "100%");
-          grad.innerHTML = '<stop offset="0%" style="stop-color:#ff922b;stop-opacity:0.3" /><stop offset="100%" style="stop-color:#339af0;stop-opacity:0.3" />';
-          defs.appendChild(grad);
-          svg.appendChild(defs);
-
-          // グリッド線（5度ごと）
-          for (let temp = minT; temp <= maxT; temp += 5) {
-            const y = (maxT - temp) / range * 1000;
-            const line = document.createElementNS(svgNS, "line");
-            line.setAttribute("x1", "0"); line.setAttribute("y1", y);
-            line.setAttribute("x2", "1000"); line.setAttribute("y2", y);
-            const isZero = Math.abs(temp) < 0.1;
-            line.setAttribute("stroke", isZero ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.06)");
-            line.setAttribute("stroke-width", isZero ? "3" : "1");
-            svg.appendChild(line);
-          }
-
-          const xStep = 1000 / daily.length;
-          const xOffset = xStep / 2;
-          const getValY = (temp) => (maxT - temp) / range * 1000;
-
-          const maxPoints = daily.map((d, i) => ({ x: xOffset + (i * xStep), y: getValY(d.temp_max_c), temp: d.temp_max_c }));
-          const minPoints = daily.map((d, i) => ({ x: xOffset + (i * xStep), y: getValY(d.temp_min_c), temp: d.temp_min_c }));
-
-          // 最高気温と最低気温の間を塗りつぶすパス
-          const getAreaPath = (maxPts, minPts) => {
-            if (maxPts.length < 2) return "";
-            let d = "M" + maxPts[0].x + "," + maxPts[0].y;
-            // 上の曲線（最高気温）
-            for (let i = 0; i < maxPts.length - 1; i++) {
-              const p0 = maxPts[i], p1 = maxPts[i+1];
-              const cp1x = p0.x + (p1.x - p0.x) / 2;
-              d += " C" + cp1x + "," + p0.y + " " + cp1x + "," + p1.y + " " + p1.x + "," + p1.y;
-            }
-            // 下の曲線（最低気温）を逆に辿る
-            d += " L" + minPts[minPts.length-1].x + "," + minPts[minPts.length-1].y;
-            for (let i = minPts.length - 1; i > 0; i--) {
-              const p0 = minPts[i], p1 = minPts[i-1];
-              const cp1x = p0.x + (p1.x - p0.x) / 2;
-              d += " C" + cp1x + "," + p0.y + " " + cp1x + "," + p1.y + " " + p1.x + "," + p1.y;
-            }
-            d += " Z";
-            return d;
-          };
-
-          const getLinePath = (pts) => {
-            if (pts.length < 2) return "";
-            let d = "M" + pts[0].x + "," + pts[0].y;
-            for (let i = 0; i < pts.length - 1; i++) {
-              const p0 = pts[i], p1 = pts[i+1];
-              const cp1x = p0.x + (p1.x - p0.x) / 2;
-              d += " C" + cp1x + "," + p0.y + " " + cp1x + "," + p1.y + " " + p1.x + "," + p1.y;
-            }
-            return d;
-          };
-
-          // エリア描画
-          const area = document.createElementNS(svgNS, "path");
-          area.setAttribute("d", getAreaPath(maxPoints, minPoints));
-          area.setAttribute("fill", "url(#tempGrad)");
-          svg.appendChild(area);
-
-          const drawLine = (pathData, color) => {
-            const p = document.createElementNS(svgNS, "path");
-            p.setAttribute("d", pathData); p.setAttribute("fill", "none");
-            p.setAttribute("stroke", color); p.setAttribute("stroke-width", "4");
-            p.setAttribute("stroke-linecap", "round");
-            svg.appendChild(p);
-          };
-          drawLine(getLinePath(maxPoints), "#ff922b");
-          drawLine(getLinePath(minPoints), "#339af0");
-
-          const drawPoints = (pts, color, isMax) => {
-            pts.forEach(p => {
-              const c = document.createElementNS(svgNS, "circle");
-              c.setAttribute("cx", p.x); c.setAttribute("cy", p.y); c.setAttribute("r", "10");
-              c.setAttribute("fill", "#fff"); c.setAttribute("stroke", color); c.setAttribute("stroke-width", "4");
-              svg.appendChild(c);
-
-              const t = document.createElementNS(svgNS, "text");
-              t.setAttribute("x", p.x); t.setAttribute("y", isMax ? p.y - 25 : p.y + 40);
-              t.setAttribute("text-anchor", "middle");
-              t.setAttribute("font-size", "32");
-              t.setAttribute("fill", color); t.setAttribute("font-weight", "700");
-              t.style.fontFamily = "sans-serif";
-              t.style.textShadow = "0 0 4px rgba(255,255,255,0.9)";
-              t.textContent = p.temp + "°";
-              svg.appendChild(t);
-            });
-          };
-          drawPoints(maxPoints, "#ff922b", true);
-          drawPoints(minPoints, "#339af0", false);
-
-          chartArea.appendChild(svg);
-          chartWrapper.appendChild(chartArea);
-
-          const xAxis = document.createElement("div");
-          xAxis.className = "chart-x-axis";
-          daily.forEach(d => {
-            const dateObj = new Date(d.date);
-            const day = ["日","月","火","水","木","金","土"][dateObj.getDay()];
-            const dateStr = d.date.split("-")[2];
-            const span = document.createElement("span");
-            span.style.textAlign = "center";
-            span.innerHTML = '<span style="font-weight:700;">' + dateStr + '</span><br>(' + day + ')';
-            xAxis.appendChild(span);
-          });
-          chartWrapper.appendChild(xAxis);
-          panel.appendChild(chartWrapper);
-        } catch (e) {
-          console.error("Chart error:", e);
-        }
-
-        const scroll = document.createElement("div");
-        scroll.style.cssText = "display:flex; gap:10px; overflow-x:auto; padding:4px 0; -webkit-overflow-scrolling: touch;";
-        daily.forEach(d => {
-          const c = document.createElement("div");
-          c.className = "card";
-          if (activeDate === d.date) c.classList.add("active");
-          const date = d.date ? d.date.split("-")[2] : "-";
-          const day = ["日","月","火","水","木","金","土"][new Date(d.date).getDay()];
-          c.innerHTML = '<div style="font-size:11px; opacity:0.6;">' + date + ' (' + day + ')</div>' +
-                        '<div style="font-size:18px; margin:8px 0;">' + d.summary_ja + '</div>' +
-                        '<div style="font-weight:700; font-size:16px;">' + d.temp_max_c + '° / ' + d.temp_min_c + '°</div>' +
-                        '<div style="font-size:10px; margin-top:4px; opacity:0.7;">☔ ' + d.precip_prob_max_percent + '%</div>';
-          
-          c.onclick = () => {
-            if (activeDate === d.date) {
-              activeDate = null;
-              detail.style.display = "none";
-              c.classList.remove("active");
-            } else {
-              document.querySelectorAll(".card").forEach(el => el.classList.remove("active"));
-              activeDate = d.date;
-              c.classList.add("active");
-              detail.style.display = "block";
-              detail.innerHTML = '<div style="font-weight:700; margin-bottom:6px; font-size:14px;">' + d.date + ' (' + day + ') の詳細</div>' +
-                                 '<div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">' +
-                                 '<div>🌡 気温: ' + d.temp_min_c + '〜' + d.temp_max_c + '℃</div>' +
-                                 '<div>☔ 降水確率: ' + d.precip_prob_max_percent + '%</div>' +
-                                 '<div>💧 降水量: ' + (d.precip_sum_mm || 0) + 'mm</div>' +
-                                 '<div>💨 最大風速: ' + (d.windspeed_max_kmh || "-") + 'km/h</div>' +
-                                 '</div>';
-              detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }
-          };
-          scroll.appendChild(c);
-        });
-        panel.appendChild(scroll);
+      // 天気予報を優先、なければ候補リスト
+      if (daily.length > 0) {
+        renderForecast(out);
+      } else if (candidates.length > 0) {
+        renderCandidates(out);
       }
     } catch (e) {
       console.error("Render error:", e);
@@ -346,8 +141,214 @@ function widgetHtml() {
     }
   }
 
+  function renderCandidates(out) {
+    const candidates = out.candidates || [];
+    headline.textContent = (out.query || "場所") + " の候補";
+    detail.style.display = "none";
+    panel.innerHTML = '<div id="list" style="display:grid; gap:8px;"></div>';
+    const list = panel.querySelector("#list");
+    candidates.forEach(c => {
+      const b = document.createElement("button");
+      b.className = "btn";
+      b.style.width = "100%";
+      b.style.textAlign = "left";
+      const fullLabel = (c.admin1 ? c.admin1 + " " : "") + c.name;
+      b.textContent = fullLabel;
+      b.onclick = async () => {
+        headline.textContent = "取得中...";
+        const next = await window.openai.callTool("get_forecast", {
+          latitude: c.latitude, longitude: c.longitude, days: 7, label: fullLabel
+        });
+        render(next);
+      };
+      list.appendChild(b);
+    });
+  }
+
+  function renderForecast(out) {
+    const daily = out.daily || [];
+    const loc = out.location || {};
+    headline.textContent = loc.name || loc.label || "天気予報";
+    panel.innerHTML = "";
+
+    // グラフ描画
+    try {
+      const maxT = 30;
+      const minT = -15;
+      const range = maxT - minT;
+
+      const chartWrapper = document.createElement("div");
+      chartWrapper.className = "chart-wrapper";
+
+      const yAxis = document.createElement("div");
+      yAxis.className = "chart-y-axis";
+      let yLabels = "";
+      for (let t = maxT; t >= minT; t -= 5) {
+        yLabels += '<span>' + t + '°</span>';
+      }
+      yAxis.innerHTML = yLabels;
+      chartWrapper.appendChild(yAxis);
+
+      const chartArea = document.createElement("div");
+      chartArea.className = "chart-area";
+      
+      const svgNS = "http://www.w3.org/2000/svg";
+      const svg = document.createElementNS(svgNS, "svg");
+      svg.setAttribute("width", "100%");
+      svg.setAttribute("height", "100%");
+      svg.setAttribute("viewBox", "0 0 1000 1000");
+      svg.setAttribute("preserveAspectRatio", "none");
+      svg.style.overflow = "visible";
+
+      const defs = document.createElementNS(svgNS, "defs");
+      const grad = document.createElementNS(svgNS, "linearGradient");
+      grad.setAttribute("id", "tempGrad");
+      grad.setAttribute("x1", "0%"); grad.setAttribute("y1", "0%"); grad.setAttribute("x2", "0%"); grad.setAttribute("y2", "100%");
+      grad.innerHTML = '<stop offset="0%" style="stop-color:#ff922b;stop-opacity:0.3" /><stop offset="100%" style="stop-color:#339af0;stop-opacity:0.3" />';
+      defs.appendChild(grad);
+      svg.appendChild(defs);
+
+      for (let temp = minT; temp <= maxT; temp += 5) {
+        const y = (maxT - temp) / range * 1000;
+        const line = document.createElementNS(svgNS, "line");
+        line.setAttribute("x1", "0"); line.setAttribute("y1", y);
+        line.setAttribute("x2", "1000"); line.setAttribute("y2", y);
+        const isZero = Math.abs(temp) < 0.1;
+        line.setAttribute("stroke", isZero ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.06)");
+        line.setAttribute("stroke-width", isZero ? "3" : "1");
+        svg.appendChild(line);
+      }
+
+      const xStep = 1000 / daily.length;
+      const xOffset = xStep / 2;
+      const getValY = (temp) => (maxT - temp) / range * 1000;
+
+      const maxPoints = daily.map((d, i) => ({ x: xOffset + (i * xStep), y: getValY(d.temp_max_c), temp: d.temp_max_c }));
+      const minPoints = daily.map((d, i) => ({ x: xOffset + (i * xStep), y: getValY(d.temp_min_c), temp: d.temp_min_c }));
+
+      const getAreaPath = (maxPts, minPts) => {
+        if (maxPts.length < 2) return "";
+        let d = "M" + maxPts[0].x + "," + maxPts[0].y;
+        for (let i = 0; i < maxPts.length - 1; i++) {
+          const p0 = maxPts[i], p1 = maxPts[i+1];
+          const cp1x = p0.x + (p1.x - p0.x) / 2;
+          d += " C" + cp1x + "," + p0.y + " " + cp1x + "," + p1.y + " " + p1.x + "," + p1.y;
+        }
+        d += " L" + minPts[minPts.length-1].x + "," + minPts[minPts.length-1].y;
+        for (let i = minPts.length - 1; i > 0; i--) {
+          const p0 = minPts[i], p1 = minPts[i-1];
+          const cp1x = p0.x + (p1.x - p0.x) / 2;
+          d += " C" + cp1x + "," + p0.y + " " + cp1x + "," + p1.y + " " + p1.x + "," + p1.y;
+        }
+        d += " Z";
+        return d;
+      };
+
+      const getLinePath = (pts) => {
+        if (pts.length < 2) return "";
+        let d = "M" + pts[0].x + "," + pts[0].y;
+        for (let i = 0; i < pts.length - 1; i++) {
+          const p0 = pts[i], p1 = pts[i+1];
+          const cp1x = p0.x + (p1.x - p0.x) / 2;
+          d += " C" + cp1x + "," + p0.y + " " + cp1x + "," + p1.y + " " + p1.x + "," + p1.y;
+        }
+        return d;
+      };
+
+      const area = document.createElementNS(svgNS, "path");
+      area.setAttribute("d", getAreaPath(maxPoints, minPoints));
+      area.setAttribute("fill", "url(#tempGrad)");
+      svg.appendChild(area);
+
+      const drawLine = (pathData, color) => {
+        const p = document.createElementNS(svgNS, "path");
+        p.setAttribute("d", pathData); p.setAttribute("fill", "none");
+        p.setAttribute("stroke", color); p.setAttribute("stroke-width", "4");
+        p.setAttribute("stroke-linecap", "round");
+        svg.appendChild(p);
+      };
+      drawLine(getLinePath(maxPoints), "#ff922b");
+      drawLine(getLinePath(minPoints), "#339af0");
+
+      const drawPoints = (pts, color, isMax) => {
+        pts.forEach(p => {
+          const c = document.createElementNS(svgNS, "circle");
+          c.setAttribute("cx", p.x); c.setAttribute("cy", p.y); c.setAttribute("r", "10");
+          c.setAttribute("fill", "#fff"); c.setAttribute("stroke", color); c.setAttribute("stroke-width", "4");
+          svg.appendChild(c);
+
+          const t = document.createElementNS(svgNS, "text");
+          t.setAttribute("x", p.x); t.setAttribute("y", isMax ? p.y - 25 : p.y + 40);
+          t.setAttribute("text-anchor", "middle");
+          t.setAttribute("font-size", "32");
+          t.setAttribute("fill", color); t.setAttribute("font-weight", "700");
+          t.style.fontFamily = "sans-serif";
+          t.style.textShadow = "0 0 4px rgba(255,255,255,0.9)";
+          t.textContent = p.temp + "°";
+          svg.appendChild(t);
+        });
+      };
+      drawPoints(maxPoints, "#ff922b", true);
+      drawPoints(minPoints, "#339af0", false);
+
+      chartArea.appendChild(svg);
+      chartWrapper.appendChild(chartArea);
+
+      const xAxis = document.createElement("div");
+      xAxis.className = "chart-x-axis";
+      daily.forEach(d => {
+        const dateObj = new Date(d.date);
+        const day = ["日","月","火","水","木","金","土"][dateObj.getDay()];
+        const dateStr = d.date.split("-")[2];
+        const span = document.createElement("span");
+        span.style.textAlign = "center";
+        span.innerHTML = '<span style="font-weight:700;">' + dateStr + '</span><br>(' + day + ')';
+        xAxis.appendChild(span);
+      });
+      chartWrapper.appendChild(xAxis);
+      panel.appendChild(chartWrapper);
+    } catch (e) { console.error("Chart draw error:", e); }
+
+    const scroll = document.createElement("div");
+    scroll.style.cssText = "display:flex; gap:10px; overflow-x:auto; padding:4px 0; -webkit-overflow-scrolling: touch;";
+    daily.forEach(d => {
+      const c = document.createElement("div");
+      c.className = "card";
+      if (activeDate === d.date) c.classList.add("active");
+      const date = d.date ? d.date.split("-")[2] : "-";
+      const day = ["日","月","火","水","木","金","土"][new Date(d.date).getDay()];
+      c.innerHTML = '<div style="font-size:11px; opacity:0.6;">' + date + ' (' + day + ')</div>' +
+                    '<div style="font-size:18px; margin:8px 0;">' + d.summary_ja + '</div>' +
+                    '<div style="font-weight:700; font-size:16px;">' + d.temp_max_c + '° / ' + d.temp_min_c + '°</div>' +
+                    '<div style="font-size:10px; margin-top:4px; opacity:0.7;">☔ ' + d.precip_prob_max_percent + '%</div>';
+      
+      c.onclick = () => {
+        if (activeDate === d.date) {
+          activeDate = null;
+          detail.style.display = "none";
+          c.classList.remove("active");
+        } else {
+          document.querySelectorAll(".card").forEach(el => el.classList.remove("active"));
+          activeDate = d.date;
+          c.classList.add("active");
+          detail.style.display = "block";
+          detail.innerHTML = '<div style="font-weight:700; margin-bottom:6px; font-size:14px;">' + d.date + ' (' + day + ') の詳細</div>' +
+                             '<div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">' +
+                             '<div>🌡 気温: ' + d.temp_min_c + '〜' + d.temp_max_c + '℃</div>' +
+                             '<div>☔ 降水確率: ' + d.precip_prob_max_percent + '%</div>' +
+                             '<div>💧 降水量: ' + (d.precip_sum_mm || 0) + 'mm</div>' +
+                             '<div>💨 最大風速: ' + (d.windspeed_max_kmh || "-") + 'km/h</div>' +
+                             '</div>';
+          detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      };
+      scroll.appendChild(c);
+    });
+    panel.appendChild(scroll);
+  }
+
   const init = () => {
-    const out = window.openai?.toolOutput;
+    const out = currentViewData || window.openai?.toolOutput;
     if (out) render(out);
     else setTimeout(init, 500);
   };
@@ -357,29 +358,14 @@ function widgetHtml() {
     const originalText = headline.textContent;
     try {
       headline.textContent = "更新中...";
-      
-      // 保存された入力、または現在の入力を優先順位をつけて取得
       const input = lastValidInput || window.openai?.toolInput;
-      
-      console.log("Updating with input:", input);
-      
-      if (!input || !input.latitude || !input.longitude) {
-        throw new Error("位置情報が特定できません");
-      }
+      if (!input || !input.latitude || !input.longitude) throw new Error("位置情報が特定できません");
       
       const next = await window.openai.callTool("get_forecast", {
-        latitude: input.latitude,
-        longitude: input.longitude,
-        days: input.days || 7,
-        label: input.label
+        latitude: input.latitude, longitude: input.longitude, days: input.days || 7, label: input.label
       });
-      
-      if (next) {
-        console.log("Update success");
-        render(next);
-      } else {
-        throw new Error("レスポンスが空です");
-      }
+      if (next) render(next);
+      else throw new Error("レスポンスが空です");
     } catch (e) {
       console.error("Update process failed:", e);
       headline.textContent = "更新失敗 (" + e.message + ")";
@@ -387,7 +373,9 @@ function widgetHtml() {
     }
   };
 
-  window.addEventListener("openai:set_globals", () => render(window.openai.toolOutput));
+  window.addEventListener("openai:set_globals", () => {
+    render(currentViewData || window.openai.toolOutput);
+  });
 </script>
 `.trim();
 }
