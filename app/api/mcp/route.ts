@@ -107,7 +107,7 @@ function widgetHtml() {
 <div class="container">
   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
     <div>
-      <div style="font-size:13px; opacity:0.6; margin-bottom:2px;">気温推移 (-15°C 〜 30°C)</div>
+      <div style="font-size:13px; opacity:0.6; margin-bottom:2px;">気温推移 (-20°C 〜 45°C)</div>
       <div id="headline" style="font-size:20px; font-weight:700;">読み込み中...</div>
     </div>
     <button id="refresh" class="btn">更新</button>
