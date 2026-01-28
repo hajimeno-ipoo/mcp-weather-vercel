@@ -102,6 +102,50 @@ function widgetHtml() {
     .hourly-temp { color: #fff; }
     .hourly-prob { color: #74c0fc; }
   }
+
+  .candidate-card {
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid rgba(0,0,0,0.08);
+    background: rgba(255,255,255,0.4);
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+  }
+  .candidate-card:hover {
+    transform: translateY(-2px);
+    border-color: #ff922b;
+    background: rgba(255,146,43,0.05);
+    box-shadow: 0 6px 16px rgba(255,146,43,0.1);
+  }
+  .candidate-card:active {
+    transform: scale(0.98);
+  }
+  .candidate-icon {
+    font-size: 20px;
+  }
+  .candidate-info {
+    flex: 1;
+  }
+  .candidate-region {
+    font-size: 11px;
+    opacity: 0.6;
+    margin-bottom: 2px;
+    font-weight: 500;
+  }
+  .candidate-name {
+    font-size: 16px;
+    font-weight: 700;
+    color: #333;
+  }
+  @media (prefers-color-scheme: dark) {
+    .candidate-card { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
+    .candidate-name { color: #eee; }
+  }
 </style>
 
 <div class="container">
@@ -179,23 +223,35 @@ function widgetHtml() {
     const candidates = out.candidates || [];
     headline.textContent = (out.query || "場所") + " の候補";
     detail.style.display = "none";
-    panel.innerHTML = '<div id="list" style="display:grid; gap:8px;"></div>';
+    panel.innerHTML = '<div id="list" style="padding: 4px 0;"></div>';
     const list = panel.querySelector("#list");
+    
     candidates.forEach(c => {
-      const b = document.createElement("button");
-      b.className = "btn";
-      b.style.width = "100%";
-      b.style.textAlign = "left";
-      const fullLabel = (c.admin1 ? c.admin1 + " " : "") + c.name;
-      b.textContent = fullLabel;
-      b.onclick = async () => {
+      const card = document.createElement("div");
+      card.className = "candidate-card";
+      
+      const region = c.admin1 || "";
+      const name = c.name;
+      
+      card.innerHTML = `
+    < div class="candidate-icon" >📍</div>
+      < div class="candidate-info" >
+        <div class="candidate-region" > ${ region } </div>
+          < div class="candidate-name" > ${ name } </div>
+            </div>
+            < div style = "opacity: 0.3; font-size: 18px;" >›</div>
+              `;
+      
+      card.onclick = async () => {
         headline.textContent = "取得中...";
+        panel.innerHTML = '<div style="text-align:center; padding:40px; opacity:0.6;">予報を読み込み中...</div>';
+        const fullLabel = (region ? region + " " : "") + name;
         const next = await window.openai.callTool("get_forecast", {
           latitude: c.latitude, longitude: c.longitude, days: 7, label: fullLabel
         });
         render(next);
       };
-      list.appendChild(b);
+      list.appendChild(card);
     });
   }
 
