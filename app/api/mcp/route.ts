@@ -233,14 +233,14 @@ function widgetHtml() {
       const region = c.admin1 || "";
       const name = c.name;
       
-      card.innerHTML = `
-    < div class="candidate-icon" >📍</div>
-      < div class="candidate-info" >
-        <div class="candidate-region" > ${ region } </div>
-          < div class="candidate-name" > ${ name } </div>
-            </div>
-            < div style = "opacity: 0.3; font-size: 18px;" >›</div>
-              `;
+      card.innerHTML = \`
+        <div class="candidate-icon">📍</div>
+        <div class="candidate-info">
+          <div class="candidate-region">\${region}</div>
+          <div class="candidate-name">\${name}</div>
+        </div>
+        <div style="opacity: 0.3; font-size: 18px;">›</div>
+      \`;
       
       card.onclick = async () => {
         headline.textContent = "取得中...";
@@ -553,7 +553,7 @@ const handler = createMcpHandler(
       contents: [{
         uri: "ui://widget/weather.html",
         mimeType: "text/html+skybridge",
-        text: widgetHtml(),
+        text: widgetHtml() as string,
         _meta: {
           "openai/widgetDomain": "weather-widget",
           "openai/widgetCSP": {
