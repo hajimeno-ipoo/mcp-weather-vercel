@@ -66,6 +66,7 @@ async function forecastByCoords(lat: number, lon: number, days: number): Promise
   url.searchParams.set("current_weather", "true");
   url.searchParams.set("forecast_days", String(days));
   url.searchParams.set("daily", ["weathercode", "temperature_2m_max", "temperature_2m_min", "precipitation_probability_max", "precipitation_sum", "windspeed_10m_max"].join(","));
+  url.searchParams.set("hourly", ["temperature_2m", "weathercode", "precipitation_probability"].join(","));
   const r = await fetch(url.toString());
   if (!r.ok) throw new APIError("FC_ERR", `HTTP ${r.status}`);
   const data: OpenMeteoForecastResponse = await r.json();
@@ -97,6 +98,22 @@ function widgetHtml() {
     .chart-y-axis { border-color: rgba(255,255,255,0.2); color: #999; }
     .chart-x-axis { color: #999; }
     .detail-panel { background: rgba(255,255,255,0.05); }
+  .hourly-container { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-top: 12px; scroll-behavior: smooth; }
+  .hourly-item { flex: 0 0 60px; text-align: center; font-size: 12px; background: rgba(255,255,255,0.05); padding: 8px 4px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); }
+  .hourly-time { opacity: 0.7; margin-bottom: 4px; font-size: 11px; }
+  .hourly-icon { font-size: 20px; margin: 4px 0; }
+  .hourly-temp { font-weight: bold; margin-bottom: 2px; }
+  .hourly-prob { font-size: 10px; color: #74c0fc; }
+  @media (prefers-color-scheme: dark) {
+    body { color: #eee; }
+    .container { border-color: rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); }
+    .btn { background: #444; color: #fff; border-color: rgba(255,255,255,0.1); }
+    .card { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
+    .chart-wrapper { background: rgba(255,255,255,0.03); }
+    .chart-y-axis { border-color: rgba(255,255,255,0.2); color: #999; }
+    .chart-x-axis { color: #999; }
+    .detail-panel { background: rgba(255,255,255,0.05); }
+    .hourly-item { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
   }
 </style>
 
@@ -121,6 +138,21 @@ function widgetHtml() {
   let activeDate = null;
   let lastValidInput = null;
   let currentViewData = null;
+
+  function wmoToIcon(code) {
+    if (code === null || code === undefined) return "❓";
+    if (code === 0) return "☀️";
+    if (code === 1) return "🌤️";
+    if (code === 2) return "⛅";
+    if (code === 3) return "☁️";
+    if (code === 45 || code === 48) return "🌫️";
+    if (code >= 51 && code <= 55) return "🌦️";
+    if (code >= 61 && code <= 65) return "☔";
+    if (code >= 71 && code <= 75) return "☃️";
+    if (code >= 80 && code <= 82) return "🌧️";
+    if (code >= 95) return "⛈️";
+    return "☁️";
+  }
 
   function render(data) {
     if (!data) return;
@@ -347,13 +379,37 @@ function widgetHtml() {
           activeDate = d.date;
           c.classList.add("active");
           detail.style.display = "block";
+          
+          let hourlyHtml = "";
+          if (d.hourly && d.hourly.time) {
+            hourlyHtml += '<div style="border-top:1px solid rgba(255,255,255,0.1); padding-top:12px;">' +
+                          '<div style="font-size:12px; margin-bottom:8px; opacity:0.8;">時間別予報</div>' +
+                          '<div class="hourly-container">';
+            d.hourly.time.forEach((t, i) => {
+              const timeObj = new Date(t);
+              const timeStr = String(timeObj.getHours()).padStart(2, '0') + ":00";
+              const code = d.hourly.weathercode[i];
+              const temp = d.hourly.temperature_2m[i];
+              const prob = d.hourly.precipitation_probability[i];
+              const icon = wmoToIcon(code);
+              
+              hourlyHtml += '<div class="hourly-item">' +
+                            '<div class="hourly-time">' + timeStr + '</div>' +
+                            '<div class="hourly-icon">' + icon + '</div>' +
+                            '<div class="hourly-temp">' + temp + '°</div>' +
+                            '<div class="hourly-prob">' + prob + '%</div>' +
+                            '</div>';
+            });
+            hourlyHtml += '</div></div>';
+          }
+
           detail.innerHTML = '<div style="font-weight:700; margin-bottom:6px; font-size:14px;">' + d.date + ' (' + day + ') の詳細</div>' +
-                             '<div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">' +
+                             '<div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">' +
                              '<div>🌡 気温: ' + d.temp_min_c + '〜' + d.temp_max_c + '℃</div>' +
                              '<div>☔ 降水確率: ' + d.precip_prob_max_percent + '%</div>' +
                              '<div>💧 降水量: ' + (d.precip_sum_mm || 0) + 'mm</div>' +
                              '<div>💨 最大風速: ' + (d.windspeed_max_kmh || "-") + 'km/h</div>' +
-                             '</div>';
+                             '</div>' + hourlyHtml;
           detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
       };
@@ -438,27 +494,40 @@ const handler = createMcpHandler(
       _meta: { "openai/outputTemplate": "ui://widget/weather.html", "openai/widgetAccessible": true }
     }, async (input: any) => {
       const f = await forecastByCoords(input.latitude, input.longitude, input.days);
-      const daily = (f.daily?.time ?? []).map((d, i) => ({
-        date: d, 
-        summary_ja: wmoToJa(f.daily?.weathercode?.[i]),
-        icon: wmoToIcon(f.daily?.weathercode?.[i]),
-        temp_max_c: f.daily?.temperature_2m_max?.[i], 
-        temp_min_c: f.daily?.temperature_2m_min?.[i],
-        precip_prob_max_percent: f.daily?.precipitation_probability_max?.[i],
-        precip_sum_mm: f.daily?.precipitation_sum?.[i], 
-        windspeed_max_kmh: f.daily?.windspeed_10m_max?.[i],
-      }));
-      return { 
-        structuredContent: { 
-          kind: "forecast", 
-          location: { 
-            name: input.label, 
-            latitude: input.latitude, 
-            longitude: input.longitude 
-          }, 
-          daily 
-        }, 
-        content: [{ type: "text", text: "天気を取得しました" }] 
+      const daily = (f.daily?.time ?? []).map((d, i) => {
+        // Slice hourly data for this day (24 hours)
+        const hourlyStart = i * 24;
+        const hourlyEnd = hourlyStart + 24;
+        const hourlyData = f.hourly ? {
+          time: f.hourly.time?.slice(hourlyStart, hourlyEnd) || [],
+          weathercode: f.hourly.weathercode?.slice(hourlyStart, hourlyEnd) || [],
+          temperature_2m: f.hourly.temperature_2m?.slice(hourlyStart, hourlyEnd) || [],
+          precipitation_probability: f.hourly.precipitation_probability?.slice(hourlyStart, hourlyEnd) || [],
+        } : undefined;
+
+        return {
+          date: d,
+          summary_ja: wmoToJa(f.daily?.weathercode?.[i]),
+          icon: wmoToIcon(f.daily?.weathercode?.[i]),
+          temp_max_c: f.daily?.temperature_2m_max?.[i],
+          temp_min_c: f.daily?.temperature_2m_min?.[i],
+          precip_prob_max_percent: f.daily?.precipitation_probability_max?.[i],
+          precip_sum_mm: f.daily?.precipitation_sum?.[i],
+          windspeed_max_kmh: f.daily?.windspeed_10m_max?.[i],
+          hourly: hourlyData,
+        };
+      });
+      return {
+        structuredContent: {
+          kind: "forecast",
+          location: {
+            name: input.label,
+            latitude: input.latitude,
+            longitude: input.longitude
+          },
+          daily
+        },
+        content: [{ type: "text", text: "天気を取得しました" }]
       };
     });
   },

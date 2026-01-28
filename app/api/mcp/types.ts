@@ -64,6 +64,12 @@ export interface DailyForecast {
   precip_prob_max_percent: number;
   precip_sum_mm?: number;
   windspeed_max_kmh?: number;
+  hourly?: {
+    time: string[];
+    weathercode: number[];
+    temperature_2m: number[];
+    precipitation_probability: number[];
+  };
 }
 
 /**
@@ -135,6 +141,12 @@ export interface OpenMeteoForecastResponse {
     precipitation_probability_max?: number[];
     precipitation_sum?: number[];
     windspeed_10m_max?: number[];
+  };
+  hourly?: {
+    time?: string[];
+    weathercode?: number[];
+    temperature_2m?: number[];
+    precipitation_probability?: number[];
   };
 }
 

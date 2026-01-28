@@ -1,4 +1,4 @@
-import fetch from 'node-fetch';
+
 
 const payload = {
   jsonrpc: "2.0",
@@ -17,7 +17,10 @@ setTimeout(async () => {
   try {
     const response = await fetch("http://localhost:3000/api/mcp", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json, text/event-stream"
+      },
       body: JSON.stringify(payload),
     });
     const text = await response.text();
