@@ -291,6 +291,18 @@ function widgetHtml() {
       svg.style.overflow = "visible";
 
       const defs = document.createElementNS(svgNS, "defs");
+      const zeroOffset = (maxT / (maxT - minT)) * 100;
+
+      const grad = document.createElementNS(svgNS, "linearGradient");
+      grad.setAttribute("id", "tempGrad");
+      grad.setAttribute("gradientUnits", "userSpaceOnUse");
+      grad.setAttribute("x1", "0%"); grad.setAttribute("y1", "0");
+      grad.setAttribute("x2", "0%"); grad.setAttribute("y2", "1000");
+      grad.innerHTML = '<stop offset="0%" style="stop-color:#ff922b;stop-opacity:0.3" />' +
+                       '<stop offset="' + zeroOffset + '%" style="stop-color:#ff922b;stop-opacity:0.3" />' +
+                       '<stop offset="' + zeroOffset + '%" style="stop-color:#339af0;stop-opacity:0.3" />' +
+                       '<stop offset="100%" style="stop-color:#339af0;stop-opacity:0.3" />';
+
       const grad2 = document.createElementNS(svgNS, "linearGradient");
       grad2.setAttribute("id", "strokeGrad");
       grad2.setAttribute("gradientUnits", "userSpaceOnUse");
@@ -300,6 +312,7 @@ function widgetHtml() {
                         '<stop offset="' + zeroOffset + '%" style="stop-color:#ff922b;stop-opacity:1" />' +
                         '<stop offset="' + zeroOffset + '%" style="stop-color:#339af0;stop-opacity:1" />' +
                         '<stop offset="100%" style="stop-color:#339af0;stop-opacity:1" />';
+      
       defs.appendChild(grad);
       defs.appendChild(grad2);
       svg.appendChild(defs);
@@ -315,9 +328,9 @@ function widgetHtml() {
         svg.appendChild(line);
       }
 
-      const xStep = 1000 / daily.length;
+      const xStep = 1000 / Math.max(1, daily.length);
       const xOffset = xStep / 2;
-      const getValY = (temp) => (maxT - temp) / range * 1000;
+      const getValY = (temp) => (maxT - (temp || 0)) / range * 1000;
 
       const maxPoints = daily.map((d, i) => ({ x: xOffset + (i * xStep), y: getValY(d.temp_max_c), temp: d.temp_max_c }));
       const minPoints = daily.map((d, i) => ({ x: xOffset + (i * xStep), y: getValY(d.temp_min_c), temp: d.temp_min_c }));
@@ -368,7 +381,7 @@ function widgetHtml() {
 
       const drawPoints = (pts, isMax) => {
         pts.forEach(p => {
-          const ptColor = p.temp >= 0 ? "#ff922b" : "#339af0";
+          const ptColor = (p.temp || 0) >= 0 ? "#ff922b" : "#339af0";
           const c = document.createElementNS(svgNS, "circle");
           c.setAttribute("cx", p.x); c.setAttribute("cy", p.y); c.setAttribute("r", "10");
           c.setAttribute("fill", "#fff"); c.setAttribute("stroke", ptColor); c.setAttribute("stroke-width", "4");
@@ -381,7 +394,7 @@ function widgetHtml() {
           t.setAttribute("fill", ptColor); t.setAttribute("font-weight", "700");
           t.style.fontFamily = "sans-serif";
           t.style.textShadow = "0 0 4px rgba(255,255,255,0.9)";
-          t.textContent = p.temp + "°";
+          t.textContent = (p.temp || 0) + "°";
           svg.appendChild(t);
         });
       };
@@ -391,18 +404,20 @@ function widgetHtml() {
       chartArea.appendChild(svg);
       chartWrapper.appendChild(chartArea);
 
-      const xAxis = document.createElement("div");
-      xAxis.className = "chart-x-axis";
-      daily.forEach(d => {
-        const dateObj = new Date(d.date);
-        const day = ["日","月","火","水","木","金","土"][dateObj.getDay()];
-        const dateStr = d.date.split("-")[2];
-        const span = document.createElement("span");
-        span.style.textAlign = "center";
-        span.innerHTML = '<span style="font-weight:700;">' + dateStr + '</span><br>(' + day + ')';
-        xAxis.appendChild(span);
-      });
-      chartWrapper.appendChild(xAxis);
+      try {
+        const xAxis = document.createElement("div");
+        xAxis.className = "chart-x-axis";
+        daily.forEach(d => {
+          const dateStr = d.date ? d.date.split("-")[2] : "-";
+          const day = d.date ? ["日","月","火","水","木","金","土"][new Date(d.date).getDay()] : "-";
+          const span = document.createElement("span");
+          span.style.textAlign = "center";
+          span.innerHTML = '<span style="font-weight:700;">' + dateStr + '</span><br>(' + day + ')';
+          xAxis.appendChild(span);
+        });
+        chartWrapper.appendChild(xAxis);
+      } catch (e) { console.error("X-Axis render error:", e); }
+
       panel.appendChild(chartWrapper);
     } catch (e) { console.error("Chart draw error:", e); }
 
