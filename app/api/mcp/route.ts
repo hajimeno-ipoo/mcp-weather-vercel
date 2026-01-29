@@ -20,6 +20,57 @@ function wmoToJa(code: number | null | undefined) {
   return WMO_JA[code] ?? `不明（code=${code}）`;
 }
 
+const WMO_ICON_FILES: Record<number, { day: string; night?: string }> = {
+  0: { day: "sunny.png", night: "sunny_night.png" },
+  1: { day: "cloudy1.png", night: "cloudy1_night.png" },
+  2: { day: "cloudy2.png", night: "cloudy2_night.png" },
+  3: { day: "overcast.png" },
+
+  45: { day: "fog.png", night: "fog_night.png" },
+  48: { day: "fog.png", night: "fog_night.png" },
+
+  51: { day: "light_rain.png" },
+  53: { day: "light_rain.png" },
+  55: { day: "light_rain.png" },
+  56: { day: "sleet.png" },
+  57: { day: "sleet.png" },
+
+  61: { day: "shower1.png", night: "shower1_night.png" },
+  63: { day: "shower2.png", night: "shower2_night.png" },
+  65: { day: "shower3.png" },
+  66: { day: "sleet.png" },
+  67: { day: "sleet.png" },
+
+  71: { day: "snow1.png", night: "snow1_night.png" },
+  73: { day: "snow3.png", night: "snow3_night.png" },
+  75: { day: "snow5.png" },
+  77: { day: "snow2.png" },
+
+  80: { day: "shower1.png", night: "shower1_night.png" },
+  81: { day: "shower2.png", night: "shower2_night.png" },
+  82: { day: "shower3.png" },
+
+  85: { day: "snow2.png" },
+  86: { day: "snow4.png" },
+
+  95: { day: "tstorm1.png", night: "tstorm1_night.png" },
+  96: { day: "tstorm2.png", night: "tstorm2_night.png" },
+  99: { day: "tstorm3.png", night: "tstorm2_night.png" },
+};
+
+const DEFAULT_ICON_FILE = { day: "dunno.png", night: "dunno.png" } as const;
+
+function wmoToIconFile(code: number | null | undefined) {
+  if (code === null || code === undefined) return DEFAULT_ICON_FILE;
+  return WMO_ICON_FILES[code] ?? DEFAULT_ICON_FILE;
+}
+
+function wmoToIconUrl(code: number | null | undefined, isNight: boolean) {
+  const files = wmoToIconFile(code);
+  const file = isNight ? (files.night ?? files.day) : files.day;
+  return `/weather_icon/${file}`;
+}
+
 function wmoToIcon(code: number | null | undefined) {
   if (code === null || code === undefined) return "❓";
   if (code === 0) return "☀️";
@@ -173,6 +224,33 @@ function widgetHtml() {
   let activeDate = null;
   let lastValidInput = null;
   let currentViewData = null;
+
+  const WMO_ICON_FILES = ${JSON.stringify(WMO_ICON_FILES)};
+  const DEFAULT_ICON_FILE = ${JSON.stringify(DEFAULT_ICON_FILE)};
+
+  function wmoToIconUrl(code, isNight) {
+    if (code === null || code === undefined) return "/weather_icon/" + DEFAULT_ICON_FILE.day;
+    const files = WMO_ICON_FILES[code] || DEFAULT_ICON_FILE;
+    const file = isNight ? (files.night || files.day) : files.day;
+    return "/weather_icon/" + file;
+  }
+
+  function isNightHour(timeStr) {
+    try {
+      if (typeof timeStr === "string") {
+        const m = /T(\d{2}):/.exec(timeStr);
+        if (m && m[1]) {
+          const h = Number(m[1]);
+          return h < 6 || h >= 18;
+        }
+      }
+      const d = new Date(timeStr);
+      const h = d.getHours();
+      return h < 6 || h >= 18;
+    } catch {
+      return false;
+    }
+  }
 
   function wmoToIcon(code) {
     if (code === null || code === undefined) return "❓";
@@ -434,8 +512,12 @@ function widgetHtml() {
       if (activeDate === d.date) c.classList.add("active");
       const date = d.date ? d.date.split("-")[2] : "-";
       const day = ["日","月","火","水","木","金","土"][new Date(d.date).getDay()];
+      const iconUrl = d.icon_url || (typeof d.weathercode === "number" ? wmoToIconUrl(d.weathercode, false) : null);
+      const iconHtml = iconUrl
+        ? '<img src="' + iconUrl + '" width="24" height="24" style="width:24px; height:24px; object-fit:contain; display:block; margin:0 auto;" />'
+        : (d.icon || "☁️");
       c.innerHTML = '<div style="font-size:11px; opacity:0.6; margin-bottom:6px;">' + date + ' (' + day + ')</div>' +
-                    '<div style="font-size:24px; margin-bottom:4px;">' + (d.icon || "☁️") + '</div>' +
+                    '<div style="height:24px; margin-bottom:6px;">' + iconHtml + '</div>' +
                     '<div style="font-size:12px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:8px;">' + d.summary_ja + '</div>' +
                     '<div style="font-weight:700; font-size:14px;">' + d.temp_max_c + '° / ' + d.temp_min_c + '°</div>';
       
@@ -509,7 +591,9 @@ function widgetHtml() {
               
               const iconDiv = document.createElement("div");
               iconDiv.style.cssText = "font-size:24px; margin:8px 0;";
-              iconDiv.textContent = wmoToIcon(d.hourly.weathercode[i]);
+              const code = d.hourly.weathercode[i];
+              const iconUrl = wmoToIconUrl(code, isNightHour(d.hourly.time[i]));
+              iconDiv.innerHTML = '<img src="' + iconUrl + '" width="28" height="28" style="width:28px; height:28px; object-fit:contain; display:block; margin:0 auto;" />';
               
               const tempDiv = document.createElement("div");
               tempDiv.style.cssText = "font-weight:800; font-size:15px; margin-bottom:4px;";
@@ -632,11 +716,14 @@ const handler = createMcpHandler(
 
         const humidityRange = rangeFromNumbers(f.hourly?.relativehumidity_2m?.slice(hourlyStart, hourlyEnd));
         const pressureRange = rangeFromNumbers(f.hourly?.pressure_msl?.slice(hourlyStart, hourlyEnd));
+        const weathercode = f.daily?.weathercode?.[i];
 
         return {
           date: d,
-          summary_ja: wmoToJa(f.daily?.weathercode?.[i]),
-          icon: wmoToIcon(f.daily?.weathercode?.[i]),
+          weathercode,
+          summary_ja: wmoToJa(weathercode),
+          icon: wmoToIcon(weathercode),
+          icon_url: wmoToIconUrl(weathercode, false),
           temp_max_c: f.daily?.temperature_2m_max?.[i],
           temp_min_c: f.daily?.temperature_2m_min?.[i],
           precip_prob_max_percent: f.daily?.precipitation_probability_max?.[i],
