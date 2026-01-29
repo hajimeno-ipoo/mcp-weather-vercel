@@ -291,17 +291,17 @@ function widgetHtml() {
       svg.style.overflow = "visible";
 
       const defs = document.createElementNS(svgNS, "defs");
-      const grad = document.createElementNS(svgNS, "linearGradient");
-      grad.setAttribute("id", "tempGrad");
-      const zeroOffset = (maxT / (maxT - minT)) * 100;
-      grad.setAttribute("gradientUnits", "userSpaceOnUse");
-      grad.setAttribute("x1", "0%"); grad.setAttribute("y1", "0");
-      grad.setAttribute("x2", "0%"); grad.setAttribute("y2", "1000");
-      grad.innerHTML = '<stop offset="0%" style="stop-color:#ff922b;stop-opacity:0.3" />' +
-                       '<stop offset="' + zeroOffset + '%" style="stop-color:#ff922b;stop-opacity:0.3" />' +
-                       '<stop offset="' + zeroOffset + '%" style="stop-color:#339af0;stop-opacity:0.3" />' +
-                       '<stop offset="100%" style="stop-color:#339af0;stop-opacity:0.3" />';
+      const grad2 = document.createElementNS(svgNS, "linearGradient");
+      grad2.setAttribute("id", "strokeGrad");
+      grad2.setAttribute("gradientUnits", "userSpaceOnUse");
+      grad2.setAttribute("x1", "0%"); grad2.setAttribute("y1", "0");
+      grad2.setAttribute("x2", "0%"); grad2.setAttribute("y2", "1000");
+      grad2.innerHTML = '<stop offset="0%" style="stop-color:#ff922b;stop-opacity:1" />' +
+                        '<stop offset="' + zeroOffset + '%" style="stop-color:#ff922b;stop-opacity:1" />' +
+                        '<stop offset="' + zeroOffset + '%" style="stop-color:#339af0;stop-opacity:1" />' +
+                        '<stop offset="100%" style="stop-color:#339af0;stop-opacity:1" />';
       defs.appendChild(grad);
+      defs.appendChild(grad2);
       svg.appendChild(defs);
 
       for (let temp = minT; temp <= maxT; temp += 5) {
@@ -356,36 +356,37 @@ function widgetHtml() {
       area.setAttribute("fill", "url(#tempGrad)");
       svg.appendChild(area);
 
-      const drawLine = (pathData, color) => {
+      const drawLine = (pathData) => {
         const p = document.createElementNS(svgNS, "path");
         p.setAttribute("d", pathData); p.setAttribute("fill", "none");
-        p.setAttribute("stroke", color); p.setAttribute("stroke-width", "4");
+        p.setAttribute("stroke", "url(#strokeGrad)"); p.setAttribute("stroke-width", "4");
         p.setAttribute("stroke-linecap", "round");
         svg.appendChild(p);
       };
-      drawLine(getLinePath(maxPoints), "#ff922b");
-      drawLine(getLinePath(minPoints), "#339af0");
+      drawLine(getLinePath(maxPoints));
+      drawLine(getLinePath(minPoints));
 
-      const drawPoints = (pts, color, isMax) => {
+      const drawPoints = (pts, isMax) => {
         pts.forEach(p => {
+          const ptColor = p.temp >= 0 ? "#ff922b" : "#339af0";
           const c = document.createElementNS(svgNS, "circle");
           c.setAttribute("cx", p.x); c.setAttribute("cy", p.y); c.setAttribute("r", "10");
-          c.setAttribute("fill", "#fff"); c.setAttribute("stroke", color); c.setAttribute("stroke-width", "4");
+          c.setAttribute("fill", "#fff"); c.setAttribute("stroke", ptColor); c.setAttribute("stroke-width", "4");
           svg.appendChild(c);
 
           const t = document.createElementNS(svgNS, "text");
           t.setAttribute("x", p.x); t.setAttribute("y", isMax ? p.y - 25 : p.y + 40);
           t.setAttribute("text-anchor", "middle");
           t.setAttribute("font-size", "32");
-          t.setAttribute("fill", color); t.setAttribute("font-weight", "700");
+          t.setAttribute("fill", ptColor); t.setAttribute("font-weight", "700");
           t.style.fontFamily = "sans-serif";
           t.style.textShadow = "0 0 4px rgba(255,255,255,0.9)";
           t.textContent = p.temp + "°";
           svg.appendChild(t);
         });
       };
-      drawPoints(maxPoints, "#ff922b", true);
-      drawPoints(minPoints, "#339af0", false);
+      drawPoints(maxPoints, true);
+      drawPoints(minPoints, false);
 
       chartArea.appendChild(svg);
       chartWrapper.appendChild(chartArea);
