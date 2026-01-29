@@ -527,7 +527,6 @@ function widgetHtml() {
             });
             detail.appendChild(hContainer);
           }
-          detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
       };
       scroll.appendChild(c);
