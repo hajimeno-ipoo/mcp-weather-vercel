@@ -157,13 +157,16 @@ function widgetHtml() {
     </div>
     <button id="refresh" class="btn">更新</button>
   </div>
-  <div id="panel"></div>
-  <div id="detail" class="detail-panel"></div>
+  <div id="panel">
+    <div id="main"></div>
+    <div id="detail" class="detail-panel"></div>
+  </div>
 </div>
 
 <script type="module">
   const headline = document.getElementById("headline");
   const panel = document.getElementById("panel");
+  const main = document.getElementById("main");
   const detail = document.getElementById("detail");
   const btn = document.getElementById("refresh");
 
@@ -224,8 +227,8 @@ function widgetHtml() {
     const candidates = out.candidates || [];
     headline.textContent = (out.query || "場所") + " の候補";
     detail.style.display = "none";
-    panel.innerHTML = '<div id="list" style="padding: 4px 0;"></div>';
-    const list = panel.querySelector("#list");
+    main.innerHTML = '<div id="list" style="padding: 4px 0;"></div>';
+    const list = main.querySelector("#list");
     
     candidates.forEach(c => {
       const card = document.createElement("div");
@@ -245,7 +248,7 @@ function widgetHtml() {
       
       card.onclick = async () => {
         headline.textContent = "取得中...";
-        panel.innerHTML = '<div style="text-align:center; padding:40px; opacity:0.6;">予報を読み込み中...</div>';
+        main.innerHTML = '<div style="text-align:center; padding:40px; opacity:0.6;">予報を読み込み中...</div>';
         const fullLabel = (region ? region + " " : "") + name;
         const next = await window.openai.callTool("get_forecast", {
           latitude: c.latitude, longitude: c.longitude, days: 7, label: fullLabel
@@ -260,7 +263,7 @@ function widgetHtml() {
     const daily = out.daily || [];
     const loc = out.location || {};
     headline.textContent = loc.name || loc.label || "天気予報";
-    panel.innerHTML = "";
+    main.innerHTML = "";
 
     // グラフ描画
     try {
@@ -420,7 +423,7 @@ function widgetHtml() {
         chartWrapper.appendChild(xAxis);
       } catch (e) { console.error("X-Axis render error:", e); }
 
-      panel.appendChild(chartWrapper);
+      main.appendChild(chartWrapper);
     } catch (e) { console.error("Chart draw error:", e); }
 
     const scroll = document.createElement("div");
@@ -529,7 +532,7 @@ function widgetHtml() {
       };
       scroll.appendChild(c);
     });
-    panel.appendChild(scroll);
+    main.appendChild(scroll);
   }
 
   const init = () => {
