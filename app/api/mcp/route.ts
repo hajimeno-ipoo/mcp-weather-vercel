@@ -9,10 +9,12 @@ const CONFIG = {
   FORECAST_API_URL: process.env.NEXT_PUBLIC_FORECAST_API_URL ?? "https://api.open-meteo.com/v1/forecast",
 } as const;
 
-const ASSET_BASE_URL =
+const ASSET_BASE_URL_RAW =
   process.env.NEXT_PUBLIC_APP_URL ??
   process.env.APP_URL ??
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+const ASSET_BASE_URL = ASSET_BASE_URL_RAW.replace(/\/+$/, "");
+const WIDGET_RESOURCE_DOMAINS = ASSET_BASE_URL ? [ASSET_BASE_URL] : [];
 
 const WMO_JA: Record<number, string> = {
   0: "快晴", 1: "ほぼ快晴", 2: "晴れ時々くもり", 3: "くもり", 45: "霧", 48: "着氷性の霧",
@@ -682,6 +684,7 @@ const handler = createMcpHandler(
           "openai/widgetDomain": "weather-widget",
           "openai/widgetCSP": {
             connect_domains: ["https://geocoding-api.open-meteo.com", "https://api.open-meteo.com"],
+            resource_domains: WIDGET_RESOURCE_DOMAINS,
           },
         },
       }],
