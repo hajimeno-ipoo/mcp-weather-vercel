@@ -1,23 +1,14 @@
-# 進捗: 天気アイコンをPNGに対応（更新4 / 401対策）
+# 進捗: 天気アイコンをPNGに対応（更新5 / 強度別）
 
-## 原因
-- ウィジェット(iframe)からVercelのPNGを直接読むと 401 で落ちる（スクショ/ログより）。
-  - 404ではなく401なので、CSPというより「認証/保護/プロキシ都合で画像が取れない」系。
+## 変更点
+- 雨/雪の強さを分けるため、WMO weathercode→PNG対応表を詳細化。
+  - 雨: drizzle(51-55) / rain(61-65) / showers(80-82) で light/medium/heavy を `light_rain` / `shower1` / `shower2` / `shower3` に割当。
+  - 雪: 71/73/75 を `snow1` / `snow3` / `snow5` に割当。
+  - ひょう/みぞれ: 56/57/66/67 を `sleet`、96/99 を `tstorm2` / `tstorm3`。
 
-## 対応
-- PNGをbase64化してウィジェットHTMLに同梱し、`<img src="data:image/png;base64,...">` で表示するように変更。
-  - 生成ファイル: `app/api/mcp/iconData.ts`
-  - 対応表は軽量化のため代表アイコンに集約（晴/くもり/雨/雪/霧/雷/不明 + 夜版）。
+## 技術
+- `app/api/mcp/iconData.ts` のbase64同梱アイコンを増やした（強度別に必要なPNGを追加）。
+- テンプレキャッシュ回避で `ui://widget/weather-v3.html` に更新。
 
-## 影響範囲
-- `app/api/mcp/route.ts`
-- `app/api/mcp/iconData.ts`
-
-## 検証結果
+## 検証
 - `npm run build` 成功。
-
-## リスク
-- `data:` がCSPで禁止されている環境だと表示できない可能性（その場合はコンソールにCSPエラーが出るはず）。
-
-## ロールバック
-- `app/api/mcp/iconData.ts` と、ウィジェット内の `ICON_PNG_BASE64` / data: 化部分を削除し、絵文字表示に戻す。

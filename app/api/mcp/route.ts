@@ -16,7 +16,7 @@ const ASSET_BASE_URL_RAW =
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
 const ASSET_BASE_URL = ASSET_BASE_URL_RAW.replace(/\/+$/, "");
 const WIDGET_RESOURCE_DOMAINS = ASSET_BASE_URL ? [ASSET_BASE_URL] : [];
-const WIDGET_TEMPLATE_URI = "ui://widget/weather-v2.html";
+const WIDGET_TEMPLATE_URI = "ui://widget/weather-v3.html";
 
 const WMO_JA: Record<number, string> = {
   0: "快晴", 1: "ほぼ快晴", 2: "晴れ時々くもり", 3: "くもり", 45: "霧", 48: "着氷性の霧",
@@ -31,40 +31,40 @@ function wmoToJa(code: number | null | undefined) {
 
 const WMO_ICON_FILES: Record<number, { day: string; night?: string }> = {
   0: { day: "sunny.png", night: "sunny_night.png" },
-  1: { day: "cloudy2.png", night: "cloudy2_night.png" },
+  1: { day: "cloudy1.png", night: "cloudy1_night.png" },
   2: { day: "cloudy2.png", night: "cloudy2_night.png" },
   3: { day: "overcast.png" },
 
   45: { day: "fog.png", night: "fog_night.png" },
   48: { day: "fog.png", night: "fog_night.png" },
 
-  51: { day: "shower2.png", night: "shower2_night.png" },
-  53: { day: "shower2.png", night: "shower2_night.png" },
-  55: { day: "shower2.png", night: "shower2_night.png" },
-  56: { day: "shower2.png", night: "shower2_night.png" },
-  57: { day: "shower2.png", night: "shower2_night.png" },
+  51: { day: "light_rain.png" }, // 霧雨（弱）
+  53: { day: "light_rain.png" }, // 霧雨
+  55: { day: "shower1.png", night: "shower1_night.png" }, // 霧雨（強）
+  56: { day: "sleet.png" }, // 着氷性の霧雨（弱）
+  57: { day: "sleet.png" }, // 着氷性の霧雨（強）
 
-  61: { day: "shower2.png", night: "shower2_night.png" },
-  63: { day: "shower2.png", night: "shower2_night.png" },
-  65: { day: "shower2.png", night: "shower2_night.png" },
-  66: { day: "shower2.png", night: "shower2_night.png" },
-  67: { day: "shower2.png", night: "shower2_night.png" },
+  61: { day: "shower1.png", night: "shower1_night.png" }, // 雨（弱）
+  63: { day: "shower2.png", night: "shower2_night.png" }, // 雨
+  65: { day: "shower3.png" }, // 雨（強）
+  66: { day: "sleet.png" }, // 着氷性の雨（弱）
+  67: { day: "sleet.png" }, // 着氷性の雨（強）
 
-  71: { day: "snow2.png", night: "snow2_night.png" },
-  73: { day: "snow2.png", night: "snow2_night.png" },
-  75: { day: "snow2.png", night: "snow2_night.png" },
-  77: { day: "snow2.png", night: "snow2_night.png" },
+  71: { day: "snow1.png", night: "snow1_night.png" }, // 雪（弱）
+  73: { day: "snow3.png", night: "snow3_night.png" }, // 雪
+  75: { day: "snow5.png" }, // 雪（強）
+  77: { day: "snow2.png", night: "snow2_night.png" }, // 霰/雪粒
 
-  80: { day: "shower2.png", night: "shower2_night.png" },
-  81: { day: "shower2.png", night: "shower2_night.png" },
-  82: { day: "shower2.png", night: "shower2_night.png" },
+  80: { day: "shower1.png", night: "shower1_night.png" }, // にわか雨（弱）
+  81: { day: "shower2.png", night: "shower2_night.png" }, // にわか雨
+  82: { day: "shower3.png" }, // にわか雨（強）
 
-  85: { day: "snow2.png", night: "snow2_night.png" },
-  86: { day: "snow2.png", night: "snow2_night.png" },
+  85: { day: "snow2.png", night: "snow2_night.png" }, // にわか雪（弱）
+  86: { day: "snow4.png" }, // にわか雪（強）
 
   95: { day: "tstorm1.png", night: "tstorm1_night.png" },
-  96: { day: "tstorm1.png", night: "tstorm1_night.png" },
-  99: { day: "tstorm1.png", night: "tstorm1_night.png" },
+  96: { day: "tstorm2.png", night: "tstorm2_night.png" }, // 雷雨 + ひょう（弱）
+  99: { day: "tstorm3.png" }, // 雷雨 + ひょう（強）
 };
 
 const DEFAULT_ICON_FILE = { day: "dunno.png", night: "dunno.png" } as const;
