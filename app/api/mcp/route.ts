@@ -534,12 +534,11 @@ function widgetHtml() {
       const day = ["日","月","火","水","木","金","土"][new Date(d.date).getDay()];
       const iconUrl = (typeof d.weathercode === "number" ? wmoToIconUrl(d.weathercode, false) : null);
       const iconHtml = iconUrl
-        ? '<img src="' + iconUrl + '" width="24" height="24" style="width:24px; height:24px; object-fit:contain; display:block; margin:0 auto;" />'
+        ? '<img src="' + iconUrl + '" width="44" height="44" style="width:44px; height:44px; object-fit:contain; display:block; margin:0 auto;" />'
         : (d.icon || "☁️");
       c.innerHTML = '<div style="font-size:11px; opacity:0.6; margin-bottom:6px;">' + date + ' (' + day + ')</div>' +
-                    '<div style="height:24px; margin-bottom:6px;">' + iconHtml + '</div>' +
-                    '<div style="font-size:12px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:8px;">' + d.summary_ja + '</div>' +
-                    '<div style="font-weight:700; font-size:14px;">' + d.temp_max_c + '° / ' + d.temp_min_c + '°</div>';
+                    '<div style="height:44px; margin:2px 0 10px 0;">' + iconHtml + '</div>' +
+                    '<div style="font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + d.summary_ja + '</div>';
       
       c.onclick = () => {
         if (activeDate === d.date) {
