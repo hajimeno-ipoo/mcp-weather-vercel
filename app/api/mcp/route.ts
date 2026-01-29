@@ -87,6 +87,7 @@ function widgetHtml() {
   .chart-wrapper { margin: 25px 0 15px 0; background: rgba(0,0,0,0.02); border-radius: 12px; padding: 40px 10px 25px 10px; position: relative; }
   .chart-y-axis { position: absolute; left: 8px; top: 40px; bottom: 65px; width: 32px; display: flex; flex-direction: column; justify-content: space-between; font-size: 8px; color: #666; text-align: right; padding-right: 6px; border-right: 1px solid rgba(0,0,0,0.15); pointer-events: none; }
   .chart-area { margin-left: 40px; margin-right: 10px; height: 320px; position: relative; }
+  .chart-area svg { pointer-events: none; }
   .chart-x-axis { margin-left: 40px; margin-right: 10px; display: grid; grid-template-columns: repeat(7, 1fr); margin-top: 15px; font-size: 8px; color: #666; }
   .detail-panel { margin-top: 12px; padding: 14px; border-radius: 12px; background: rgba(0,0,0,0.04); font-size: 13px; line-height: 1.6; display: none; }
 
@@ -289,6 +290,7 @@ function widgetHtml() {
       svg.setAttribute("viewBox", "0 0 1000 1000");
       svg.setAttribute("preserveAspectRatio", "none");
       svg.style.overflow = "visible";
+      svg.style.pointerEvents = "none";
 
       const defs = document.createElementNS(svgNS, "defs");
       const zeroOffset = (maxT / (maxT - minT)) * 100;
