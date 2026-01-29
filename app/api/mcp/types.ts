@@ -63,12 +63,20 @@ export interface DailyForecast {
   temp_min_c: number;
   precip_prob_max_percent: number;
   precip_sum_mm?: number;
+  rain_sum_mm?: number;
+  snowfall_sum_cm?: number;
   windspeed_max_kmh?: number;
+  humidity_min_percent?: number;
+  humidity_max_percent?: number;
+  pressure_msl_min_hpa?: number;
+  pressure_msl_max_hpa?: number;
   hourly?: {
     time: string[];
     weathercode: number[];
     temperature_2m: number[];
     precipitation_probability: number[];
+    relativehumidity_2m?: number[];
+    pressure_msl?: number[];
   };
 }
 
@@ -140,6 +148,8 @@ export interface OpenMeteoForecastResponse {
     temperature_2m_min?: number[];
     precipitation_probability_max?: number[];
     precipitation_sum?: number[];
+    rain_sum?: number[];
+    snowfall_sum?: number[];
     windspeed_10m_max?: number[];
   };
   hourly?: {
@@ -147,6 +157,8 @@ export interface OpenMeteoForecastResponse {
     weathercode?: number[];
     temperature_2m?: number[];
     precipitation_probability?: number[];
+    relativehumidity_2m?: number[];
+    pressure_msl?: number[];
   };
 }
 

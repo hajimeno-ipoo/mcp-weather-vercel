@@ -65,8 +65,8 @@ async function forecastByCoords(lat: number, lon: number, days: number): Promise
   url.searchParams.set("timezone", "Asia/Tokyo");
   url.searchParams.set("current_weather", "true");
   url.searchParams.set("forecast_days", String(days));
-  url.searchParams.set("daily", ["weathercode", "temperature_2m_max", "temperature_2m_min", "precipitation_probability_max", "precipitation_sum", "windspeed_10m_max"].join(","));
-  url.searchParams.set("hourly", ["temperature_2m", "weathercode", "precipitation_probability"].join(","));
+  url.searchParams.set("daily", ["weathercode", "temperature_2m_max", "temperature_2m_min", "precipitation_probability_max", "precipitation_sum", "rain_sum", "snowfall_sum", "windspeed_10m_max"].join(","));
+  url.searchParams.set("hourly", ["temperature_2m", "weathercode", "precipitation_probability", "relativehumidity_2m", "pressure_msl"].join(","));
   const r = await fetch(url.toString());
   if (!r.ok) throw new APIError("FC_ERR", `HTTP ${r.status}`);
   const data: OpenMeteoForecastResponse = await r.json();
@@ -455,11 +455,23 @@ function widgetHtml() {
           const grid = document.createElement("div");
           grid.style.cssText = "display:grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; font-size: 13px; opacity: 0.9;";
           
+          const fmtRange = (min, max, unit) => {
+            const nMin = typeof min === "number" && isFinite(min) ? Math.round(min) : null;
+            const nMax = typeof max === "number" && isFinite(max) ? Math.round(max) : null;
+            if (nMin === null && nMax === null) return "-";
+            if (nMin !== null && nMax !== null) return nMin === nMax ? (nMin + unit) : (nMin + "〜" + nMax + unit);
+            return (nMin ?? nMax) + unit;
+          };
+
           const stats = [
             { label: '🌡 気温', value: d.temp_min_c + '〜' + d.temp_max_c + '℃' },
             { label: '☔ 降水確率', value: d.precip_prob_max_percent + '%' },
             { label: '☔ 降水量', value: (d.precip_sum_mm || 0) + 'mm' },
-            { label: '💨 最大風速', value: (d.windspeed_max_kmh || "-") + 'km/h' }
+            { label: '🌧 雨', value: ((d.rain_sum_mm ?? 0)) + 'mm' },
+            { label: '❄️ 雪', value: ((d.snowfall_sum_cm ?? 0)) + 'cm' },
+            { label: '💧 湿度', value: fmtRange(d.humidity_min_percent, d.humidity_max_percent, '%') },
+            { label: '📈 気圧', value: fmtRange(d.pressure_msl_min_hpa, d.pressure_msl_max_hpa, 'hPa') },
+            { label: '💨 最大風速', value: (d.windspeed_max_kmh || "-") + 'km/h' },
           ];
 
           stats.forEach(item => {
@@ -594,6 +606,13 @@ const handler = createMcpHandler(
       _meta: { "openai/outputTemplate": "ui://widget/weather.html", "openai/widgetAccessible": true }
     }, async (input: any) => {
       const f = await forecastByCoords(input.latitude, input.longitude, input.days);
+      const rangeFromNumbers = (values: Array<number | null | undefined> | undefined) => {
+        if (!values || values.length === 0) return null;
+        const nums = values.filter((v): v is number => typeof v === "number" && Number.isFinite(v));
+        if (nums.length === 0) return null;
+        return { min: Math.min(...nums), max: Math.max(...nums) };
+      };
+
       const daily = (f.daily?.time ?? []).map((d, i) => {
         // Slice hourly data for this day (24 hours)
         const hourlyStart = i * 24;
@@ -603,7 +622,12 @@ const handler = createMcpHandler(
           weathercode: f.hourly.weathercode?.slice(hourlyStart, hourlyEnd) || [],
           temperature_2m: f.hourly.temperature_2m?.slice(hourlyStart, hourlyEnd) || [],
           precipitation_probability: f.hourly.precipitation_probability?.slice(hourlyStart, hourlyEnd) || [],
+          relativehumidity_2m: f.hourly.relativehumidity_2m?.slice(hourlyStart, hourlyEnd) || [],
+          pressure_msl: f.hourly.pressure_msl?.slice(hourlyStart, hourlyEnd) || [],
         } : undefined;
+
+        const humidityRange = rangeFromNumbers(f.hourly?.relativehumidity_2m?.slice(hourlyStart, hourlyEnd));
+        const pressureRange = rangeFromNumbers(f.hourly?.pressure_msl?.slice(hourlyStart, hourlyEnd));
 
         return {
           date: d,
@@ -613,7 +637,13 @@ const handler = createMcpHandler(
           temp_min_c: f.daily?.temperature_2m_min?.[i],
           precip_prob_max_percent: f.daily?.precipitation_probability_max?.[i],
           precip_sum_mm: f.daily?.precipitation_sum?.[i],
+          rain_sum_mm: f.daily?.rain_sum?.[i],
+          snowfall_sum_cm: f.daily?.snowfall_sum?.[i],
           windspeed_max_kmh: f.daily?.windspeed_10m_max?.[i],
+          humidity_min_percent: humidityRange?.min,
+          humidity_max_percent: humidityRange?.max,
+          pressure_msl_min_hpa: pressureRange?.min,
+          pressure_msl_max_hpa: pressureRange?.max,
           hourly: hourlyData,
         };
       });
