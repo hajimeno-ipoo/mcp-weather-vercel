@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { GeoCandidate, OpenMeteoGeocodingResponse, OpenMeteoForecastResponse } from "./types";
 import { APIError } from "./types";
 import { geocodeCache, forecastCache, generateGeocodeKey, generateForecastKey } from "./cache";
+import { ICON_PNG_BASE64 } from "./iconData";
 
 const CONFIG = {
   GEOCODING_API_URL: process.env.NEXT_PUBLIC_GEOCODING_API_URL ?? "https://geocoding-api.open-meteo.com/v1/search",
@@ -30,40 +31,40 @@ function wmoToJa(code: number | null | undefined) {
 
 const WMO_ICON_FILES: Record<number, { day: string; night?: string }> = {
   0: { day: "sunny.png", night: "sunny_night.png" },
-  1: { day: "cloudy1.png", night: "cloudy1_night.png" },
+  1: { day: "cloudy2.png", night: "cloudy2_night.png" },
   2: { day: "cloudy2.png", night: "cloudy2_night.png" },
   3: { day: "overcast.png" },
 
   45: { day: "fog.png", night: "fog_night.png" },
   48: { day: "fog.png", night: "fog_night.png" },
 
-  51: { day: "light_rain.png" },
-  53: { day: "light_rain.png" },
-  55: { day: "light_rain.png" },
-  56: { day: "sleet.png" },
-  57: { day: "sleet.png" },
+  51: { day: "shower2.png", night: "shower2_night.png" },
+  53: { day: "shower2.png", night: "shower2_night.png" },
+  55: { day: "shower2.png", night: "shower2_night.png" },
+  56: { day: "shower2.png", night: "shower2_night.png" },
+  57: { day: "shower2.png", night: "shower2_night.png" },
 
-  61: { day: "shower1.png", night: "shower1_night.png" },
+  61: { day: "shower2.png", night: "shower2_night.png" },
   63: { day: "shower2.png", night: "shower2_night.png" },
-  65: { day: "shower3.png" },
-  66: { day: "sleet.png" },
-  67: { day: "sleet.png" },
+  65: { day: "shower2.png", night: "shower2_night.png" },
+  66: { day: "shower2.png", night: "shower2_night.png" },
+  67: { day: "shower2.png", night: "shower2_night.png" },
 
-  71: { day: "snow1.png", night: "snow1_night.png" },
-  73: { day: "snow3.png", night: "snow3_night.png" },
-  75: { day: "snow5.png" },
-  77: { day: "snow2.png" },
+  71: { day: "snow2.png", night: "snow2_night.png" },
+  73: { day: "snow2.png", night: "snow2_night.png" },
+  75: { day: "snow2.png", night: "snow2_night.png" },
+  77: { day: "snow2.png", night: "snow2_night.png" },
 
-  80: { day: "shower1.png", night: "shower1_night.png" },
+  80: { day: "shower2.png", night: "shower2_night.png" },
   81: { day: "shower2.png", night: "shower2_night.png" },
-  82: { day: "shower3.png" },
+  82: { day: "shower2.png", night: "shower2_night.png" },
 
-  85: { day: "snow2.png" },
-  86: { day: "snow4.png" },
+  85: { day: "snow2.png", night: "snow2_night.png" },
+  86: { day: "snow2.png", night: "snow2_night.png" },
 
   95: { day: "tstorm1.png", night: "tstorm1_night.png" },
-  96: { day: "tstorm2.png", night: "tstorm2_night.png" },
-  99: { day: "tstorm3.png", night: "tstorm2_night.png" },
+  96: { day: "tstorm1.png", night: "tstorm1_night.png" },
+  99: { day: "tstorm1.png", night: "tstorm1_night.png" },
 };
 
 const DEFAULT_ICON_FILE = { day: "dunno.png", night: "dunno.png" } as const;
@@ -235,6 +236,7 @@ function widgetHtml() {
   let currentViewData = null;
 
   const ASSET_BASE_URL = ${JSON.stringify(ASSET_BASE_URL)};
+  const ICON_PNG_BASE64 = ${JSON.stringify(ICON_PNG_BASE64)};
   const WMO_ICON_FILES = ${JSON.stringify(WMO_ICON_FILES)};
   const DEFAULT_ICON_FILE = ${JSON.stringify(DEFAULT_ICON_FILE)};
 
@@ -243,6 +245,8 @@ function widgetHtml() {
     if (code === null || code === undefined) return base + "/weather_icon/" + DEFAULT_ICON_FILE.day;
     const files = WMO_ICON_FILES[code] || DEFAULT_ICON_FILE;
     const file = isNight ? (files.night || files.day) : files.day;
+    const b64 = ICON_PNG_BASE64[file];
+    if (b64) return "data:image/png;base64," + b64;
     return base + "/weather_icon/" + file;
   }
 
@@ -523,7 +527,7 @@ function widgetHtml() {
       if (activeDate === d.date) c.classList.add("active");
       const date = d.date ? d.date.split("-")[2] : "-";
       const day = ["日","月","火","水","木","金","土"][new Date(d.date).getDay()];
-      const iconUrl = d.icon_url || (typeof d.weathercode === "number" ? wmoToIconUrl(d.weathercode, false) : null);
+      const iconUrl = (typeof d.weathercode === "number" ? wmoToIconUrl(d.weathercode, false) : null);
       const iconHtml = iconUrl
         ? '<img src="' + iconUrl + '" width="24" height="24" style="width:24px; height:24px; object-fit:contain; display:block; margin:0 auto;" />'
         : (d.icon || "☁️");
@@ -735,7 +739,6 @@ const handler = createMcpHandler(
           weathercode,
           summary_ja: wmoToJa(weathercode),
           icon: wmoToIcon(weathercode),
-          icon_url: wmoToIconUrl(weathercode, false),
           temp_max_c: f.daily?.temperature_2m_max?.[i],
           temp_min_c: f.daily?.temperature_2m_min?.[i],
           precip_prob_max_percent: f.daily?.precipitation_probability_max?.[i],

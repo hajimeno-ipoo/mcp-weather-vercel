@@ -1,14 +1,23 @@
-# 進捗: 天気アイコンをPNGに対応（更新3）
+# 進捗: 天気アイコンをPNGに対応（更新4 / 401対策）
 
-## 症状
-- 画像が依然として空枠になるケースがあり、CSP更新が反映されていない（キャッシュ）可能性がある。
+## 原因
+- ウィジェット(iframe)からVercelのPNGを直接読むと 401 で落ちる（スクショ/ログより）。
+  - 404ではなく401なので、CSPというより「認証/保護/プロキシ都合で画像が取れない」系。
 
 ## 対応
-- ウィジェットテンプレURIを `ui://widget/weather-v2.html` に変更し、ChatGPT側のテンプレキャッシュを回避。
-  - 変更箇所: `registerResource` のURIと、各ツールの `openai/outputTemplate`。
+- PNGをbase64化してウィジェットHTMLに同梱し、`<img src="data:image/png;base64,...">` で表示するように変更。
+  - 生成ファイル: `app/api/mcp/iconData.ts`
+  - 対応表は軽量化のため代表アイコンに集約（晴/くもり/雨/雪/霧/雷/不明 + 夜版）。
+
+## 影響範囲
+- `app/api/mcp/route.ts`
+- `app/api/mcp/iconData.ts`
 
 ## 検証結果
 - `npm run build` 成功。
 
-## 次の確認
-- Vercelへ再デプロイ後、ウィジェットでアイコン表示が復活するか確認。
+## リスク
+- `data:` がCSPで禁止されている環境だと表示できない可能性（その場合はコンソールにCSPエラーが出るはず）。
+
+## ロールバック
+- `app/api/mcp/iconData.ts` と、ウィジェット内の `ICON_PNG_BASE64` / data: 化部分を削除し、絵文字表示に戻す。
