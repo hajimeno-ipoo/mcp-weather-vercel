@@ -1,18 +1,19 @@
-# 進捗: 天気アイコンをPNGに対応
+# 進捗: 天気アイコンをPNGに対応（更新）
 
-## 変更点
-- 仕様変更: `get_forecast` の日別データに `weathercode` と `icon_url`（`/weather_icon/...png`）を追加。
-- 内部実装: ウィジェットHTMLで、日別/時間別アイコンを絵文字→`<img>`で表示（`icon_url`優先、無ければ従来の絵文字にフォールバック）。
+## 追加で直したこと
+- 不具合: ウィジェット(iframe)内で `/weather_icon/...` を読むと、サンドボックスドメインに解決されて 404 になっていた。
+- 対応: アイコンURLを絶対URLにできるよう `ASSET_BASE_URL` を導入し、`icon_url` とウィジェット内 `wmoToIconUrl()` が `https://<vercel>/weather_icon/...` を返すように変更。
+  - 優先順: `NEXT_PUBLIC_APP_URL` → `APP_URL` → `VERCEL_URL`（あれば `https://` を付与）→ なしなら相対のまま。
 
 ## 影響範囲
 - 対象ファイル: `app/api/mcp/route.ts`
-- 既存フィールド `icon`（絵文字）は維持。新フィールド追加なので後方互換寄り。
+- データ: `get_forecast` 日別に `icon_url` を追加（既存 `icon` は維持）。
 
 ## 検証結果
-- `npm run build` を実行し成功。
+- `npm run build` 成功。
 
 ## リスク
-- Apps SDKのiframe環境で `img-src` のCSPが厳しい場合、画像が表示されない可能性（ただし同一オリジンの `/weather_icon/...` を使うため基本は低め）。
+- もしApps SDK側のCSPで外部`img-src`が制限されていると表示不可の可能性。ただし今回の失敗は 404 だったので、まずは絶対URL化で改善が期待できる。
 
 ## ロールバック
-- `app/api/mcp/route.ts` の `icon_url` 追加と `<img>` 描画部分を戻し、従来の絵文字 `wmoToIcon()` のみの表示に戻す。
+- `ASSET_BASE_URL` と `icon_url` / `<img>` 部分を削除して、絵文字表示だけに戻す。

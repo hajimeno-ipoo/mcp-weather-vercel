@@ -9,6 +9,11 @@ const CONFIG = {
   FORECAST_API_URL: process.env.NEXT_PUBLIC_FORECAST_API_URL ?? "https://api.open-meteo.com/v1/forecast",
 } as const;
 
+const ASSET_BASE_URL =
+  process.env.NEXT_PUBLIC_APP_URL ??
+  process.env.APP_URL ??
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+
 const WMO_JA: Record<number, string> = {
   0: "快晴", 1: "ほぼ快晴", 2: "晴れ時々くもり", 3: "くもり", 45: "霧", 48: "着氷性の霧",
   51: "弱い霧雨", 53: "霧雨", 55: "強い霧雨", 61: "弱い雨", 63: "雨", 65: "強い雨",
@@ -68,7 +73,8 @@ function wmoToIconFile(code: number | null | undefined) {
 function wmoToIconUrl(code: number | null | undefined, isNight: boolean) {
   const files = wmoToIconFile(code);
   const file = isNight ? (files.night ?? files.day) : files.day;
-  return `/weather_icon/${file}`;
+  const path = `/weather_icon/${file}`;
+  return ASSET_BASE_URL ? `${ASSET_BASE_URL}${path}` : path;
 }
 
 function wmoToIcon(code: number | null | undefined) {
@@ -225,14 +231,16 @@ function widgetHtml() {
   let lastValidInput = null;
   let currentViewData = null;
 
+  const ASSET_BASE_URL = ${JSON.stringify(ASSET_BASE_URL)};
   const WMO_ICON_FILES = ${JSON.stringify(WMO_ICON_FILES)};
   const DEFAULT_ICON_FILE = ${JSON.stringify(DEFAULT_ICON_FILE)};
 
   function wmoToIconUrl(code, isNight) {
-    if (code === null || code === undefined) return "/weather_icon/" + DEFAULT_ICON_FILE.day;
+    const base = ASSET_BASE_URL || "";
+    if (code === null || code === undefined) return base + "/weather_icon/" + DEFAULT_ICON_FILE.day;
     const files = WMO_ICON_FILES[code] || DEFAULT_ICON_FILE;
     const file = isNight ? (files.night || files.day) : files.day;
-    return "/weather_icon/" + file;
+    return base + "/weather_icon/" + file;
   }
 
   function isNightHour(timeStr) {
