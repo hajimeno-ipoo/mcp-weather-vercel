@@ -15,6 +15,7 @@ const ASSET_BASE_URL_RAW =
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
 const ASSET_BASE_URL = ASSET_BASE_URL_RAW.replace(/\/+$/, "");
 const WIDGET_RESOURCE_DOMAINS = ASSET_BASE_URL ? [ASSET_BASE_URL] : [];
+const WIDGET_TEMPLATE_URI = "ui://widget/weather-v2.html";
 
 const WMO_JA: Record<number, string> = {
   0: "快晴", 1: "ほぼ快晴", 2: "晴れ時々くもり", 3: "くもり", 45: "霧", 48: "着氷性の霧",
@@ -675,9 +676,9 @@ const getForecastSchema = z.object({
 
 const handler = createMcpHandler(
   (server) => {
-    server.registerResource("weather-widget", "ui://widget/weather.html", {} as any, async () => ({
+    server.registerResource("weather-widget", WIDGET_TEMPLATE_URI, {} as any, async () => ({
       contents: [{
-        uri: "ui://widget/weather.html",
+        uri: WIDGET_TEMPLATE_URI,
         mimeType: "text/html+skybridge",
         text: widgetHtml() as string,
         _meta: {
@@ -693,7 +694,7 @@ const handler = createMcpHandler(
     server.registerTool("geocode_place", {
       title: "候補地検索", description: "場所名から候補地を検索します。",
       inputSchema: geocodePlaceSchema,
-      _meta: { "openai/outputTemplate": "ui://widget/weather.html", "openai/widgetAccessible": true }
+      _meta: { "openai/outputTemplate": WIDGET_TEMPLATE_URI, "openai/widgetAccessible": true }
     }, async (input: any) => {
       const candidates = await geocodeCandidates(input.place, input.count);
       return { structuredContent: { kind: "geocode", query: input.place, candidates }, content: [{ type: "text", text: "候補を表示しました" }] };
@@ -702,7 +703,7 @@ const handler = createMcpHandler(
     server.registerTool("get_forecast", {
       title: "天気取得", description: "天気予報を取得します。",
       inputSchema: getForecastSchema,
-      _meta: { "openai/outputTemplate": "ui://widget/weather.html", "openai/widgetAccessible": true }
+      _meta: { "openai/outputTemplate": WIDGET_TEMPLATE_URI, "openai/widgetAccessible": true }
     }, async (input: any) => {
       const f = await forecastByCoords(input.latitude, input.longitude, input.days);
       const rangeFromNumbers = (values: Array<number | null | undefined> | undefined) => {
