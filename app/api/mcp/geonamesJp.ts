@@ -168,6 +168,7 @@ export async function searchGeoNamesJpCandidates(place: string, count: number): 
     candidates.push({
       name: pickBestJaName(row.name, row.alternatenames, query),
       country: "日本",
+      country_code: "JP",
       admin1,
       latitude: row.latitude,
       longitude: row.longitude,
@@ -177,4 +178,3 @@ export async function searchGeoNamesJpCandidates(place: string, count: number): 
 
   return candidates;
 }
-

@@ -17,7 +17,7 @@ const ASSET_BASE_URL_RAW =
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
 const ASSET_BASE_URL = ASSET_BASE_URL_RAW.replace(/\/+$/, "");
 const WIDGET_RESOURCE_DOMAINS = ASSET_BASE_URL ? [ASSET_BASE_URL] : [];
-const WIDGET_TEMPLATE_URI = "ui://widget/weather-v12.html";
+const WIDGET_TEMPLATE_URI = "ui://widget/weather-v13.html";
 
 const WMO_JA: Record<number, string> = {
   0: "快晴", 1: "ほぼ快晴", 2: "晴れ時々くもり", 3: "くもり", 45: "霧", 48: "着氷性の霧",
@@ -131,6 +131,7 @@ async function geocodeCandidates(place: string, count: number): Promise<GeoCandi
     return results.map((hit: any) => ({
       name: hit.name,
       country: hit.country,
+      country_code: hit.country_code,
       admin1: hit.admin1,
       latitude: hit.latitude,
       longitude: hit.longitude,
@@ -261,49 +262,63 @@ function widgetHtml() {
 	    .hourly-prob { color: #74c0fc; }
 	  }
 
-  .candidate-card {
-    padding: 16px;
-    border-radius: 12px;
-    border: 1px solid rgba(0,0,0,0.08);
-    background: rgba(255,255,255,0.4);
-    cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-  }
-  .candidate-card:hover {
-    transform: translateY(-2px);
-    border-color: #ff922b;
-    background: rgba(255,146,43,0.05);
-    box-shadow: 0 6px 16px rgba(255,146,43,0.1);
-  }
-  .candidate-card:active {
-    transform: scale(0.98);
-  }
-  .candidate-icon {
-    font-size: 20px;
-  }
-  .candidate-info {
-    flex: 1;
-  }
-  .candidate-region {
-    font-size: 11px;
-    opacity: 0.6;
-    margin-bottom: 2px;
-    font-weight: 500;
-  }
-  .candidate-name {
-    font-size: 16px;
-    font-weight: 700;
-    color: #333;
-  }
-  @media (prefers-color-scheme: dark) {
-    .candidate-card { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
-    .candidate-name { color: #eee; }
-  }
+	  .candidate-list {
+	    display: flex;
+	    gap: 12px;
+	    overflow-x: auto;
+	    padding: 4px 0 8px;
+	    scroll-snap-type: x mandatory;
+	  }
+
+	  .candidate-card {
+	    flex: 0 0 180px;
+	    padding: 14px 12px;
+	    border-radius: 16px;
+	    border: 1px solid rgba(0,0,0,0.08);
+	    background: rgba(255,255,255,0.4);
+	    cursor: pointer;
+	    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+	    display: flex;
+	    flex-direction: column;
+	    align-items: center;
+	    text-align: center;
+	    gap: 6px;
+	    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+	    scroll-snap-align: start;
+	  }
+	  .candidate-card:hover {
+	    transform: translateY(-2px);
+	    border-color: #ff922b;
+	    background: rgba(255,146,43,0.05);
+	    box-shadow: 0 6px 16px rgba(255,146,43,0.1);
+	  }
+	  .candidate-card:active {
+	    transform: scale(0.98);
+	  }
+	  .candidate-flag {
+	    font-size: 26px;
+	    line-height: 1;
+	    margin-top: 2px;
+	  }
+	  .candidate-region {
+	    font-size: 11px;
+	    opacity: 0.6;
+	    font-weight: 500;
+	  }
+	  .candidate-name {
+	    font-size: 15px;
+	    font-weight: 700;
+	    color: #333;
+	  }
+	  .candidate-latlon {
+	    font-size: 11px;
+	    opacity: 0.6;
+	    font-weight: 500;
+	  }
+	  @media (prefers-color-scheme: dark) {
+	    .candidate-card { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
+	    .candidate-name { color: #eee; }
+	  }
 </style>
 
 <div class="container">
@@ -337,10 +352,18 @@ function widgetHtml() {
   const WMO_ICON_FILES = ${JSON.stringify(WMO_ICON_FILES)};
   const DEFAULT_ICON_FILE = ${JSON.stringify(DEFAULT_ICON_FILE)};
 
-  function wmoToJa(code) {
-    if (code === null || code === undefined) return "不明";
-    return WMO_JA[code] || ("不明（code=" + code + "）");
-  }
+	  function wmoToJa(code) {
+	    if (code === null || code === undefined) return "不明";
+	    return WMO_JA[code] || ("不明（code=" + code + "）");
+	  }
+
+	  function countryCodeToFlag(code) {
+	    if (!code) return "";
+	    const cc = String(code).toUpperCase();
+	    if (!/^[A-Z]{2}$/.test(cc)) return "";
+	    const base = 127397;
+	    return String.fromCodePoint(base + cc.charCodeAt(0), base + cc.charCodeAt(1));
+	  }
 
   function wmoToIconUrl(code, isNight) {
     const base = ASSET_BASE_URL || "";
@@ -428,50 +451,48 @@ function widgetHtml() {
     }
   }
 
-  function renderCandidates(out) {
-    const candidates = out.candidates || [];
-    headline.textContent = (out.query || "場所") + " の候補";
-    detail.style.display = "none";
-    main.innerHTML = '<div id="list" style="padding: 4px 0;"></div>';
-    const list = main.querySelector("#list");
-    
-    candidates.forEach(c => {
-      const card = document.createElement("div");
-      card.className = "candidate-card";
-      
-      const region = c.admin1 || "";
-      const name = c.name;
-      const country = c.country || "";
-      const lat = typeof c.latitude === "number" ? c.latitude : null;
-      const lon = typeof c.longitude === "number" ? c.longitude : null;
-      const latLon = (lat !== null && lon !== null)
-        ? (lat.toFixed(4) + " / " + lon.toFixed(4))
-        : "";
-      
-      card.innerHTML = \`
-        <div class="candidate-icon">📍</div>
-        <div class="candidate-info">
-          <div class="candidate-region">\${[country, region].filter(Boolean).join(" / ")}</div>
-          <div class="candidate-name">\${name}</div>
-          <div style="font-size: 11px; opacity: 0.6; margin-top: 2px; font-weight: 500;">\${latLon}</div>
-        </div>
-        <div style="opacity: 0.3; font-size: 18px;">›</div>
-      \`;
-      
-      card.onclick = async () => {
-        headline.textContent = "取得中...";
-        main.innerHTML = '<div style="text-align:center; padding:40px; opacity:0.6;">予報を読み込み中...</div>';
-        const fullLabel = (region ? region + " " : "") + name;
-        // 先に保存しておく（取得失敗時でも「更新」できるように）
-        lastValidInput = { latitude: c.latitude, longitude: c.longitude, label: fullLabel };
-        const next = await window.openai.callTool("get_forecast", {
-          latitude: c.latitude, longitude: c.longitude, days: 7, label: fullLabel
-        });
-        render(next);
-      };
-      list.appendChild(card);
-    });
-  }
+	  function renderCandidates(out) {
+	    const candidates = out.candidates || [];
+	    headline.textContent = (out.query || "場所") + " の候補";
+	    detail.style.display = "none";
+	    main.innerHTML = '<div id="list" class="candidate-list"></div>';
+	    const list = main.querySelector("#list");
+	    
+	    candidates.forEach(c => {
+	      const card = document.createElement("div");
+	      card.className = "candidate-card";
+	      
+	      const region = c.admin1 || "";
+	      const name = c.name;
+	      const country = c.country || "";
+	      const flag = countryCodeToFlag(c.country_code) || "🌐";
+	      const lat = typeof c.latitude === "number" ? c.latitude : null;
+	      const lon = typeof c.longitude === "number" ? c.longitude : null;
+	      const latLon = (lat !== null && lon !== null)
+	        ? (lat.toFixed(4) + " / " + lon.toFixed(4))
+	        : "";
+	      
+	      card.innerHTML = \`
+	        <div class="candidate-flag">\${flag}</div>
+	        <div class="candidate-region">\${[country, region].filter(Boolean).join(" / ")}</div>
+	        <div class="candidate-name">\${name}</div>
+	        <div class="candidate-latlon">\${latLon}</div>
+	      \`;
+	      
+	      card.onclick = async () => {
+	        headline.textContent = "取得中...";
+	        main.innerHTML = '<div style="text-align:center; padding:40px; opacity:0.6;">予報を読み込み中...</div>';
+	        const fullLabel = (region ? region + " " : "") + name;
+	        // 先に保存しておく（取得失敗時でも「更新」できるように）
+	        lastValidInput = { latitude: c.latitude, longitude: c.longitude, label: fullLabel };
+	        const next = await window.openai.callTool("get_forecast", {
+	          latitude: c.latitude, longitude: c.longitude, days: 7, label: fullLabel
+	        });
+	        render(next);
+	      };
+	      list.appendChild(card);
+	    });
+	  }
 
 	  function renderForecast(out) {
 	    const daily = out.daily || [];

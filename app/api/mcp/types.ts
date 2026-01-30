@@ -12,6 +12,7 @@
 export interface GeoCandidate {
   name: string;
   country?: string;
+  country_code?: string;
   admin1?: string;
   latitude: number;
   longitude: number;
