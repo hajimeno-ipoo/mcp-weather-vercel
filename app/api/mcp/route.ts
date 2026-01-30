@@ -16,7 +16,7 @@ const ASSET_BASE_URL_RAW =
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
 const ASSET_BASE_URL = ASSET_BASE_URL_RAW.replace(/\/+$/, "");
 const WIDGET_RESOURCE_DOMAINS = ASSET_BASE_URL ? [ASSET_BASE_URL] : [];
-const WIDGET_TEMPLATE_URI = "ui://widget/weather-v7.html";
+const WIDGET_TEMPLATE_URI = "ui://widget/weather-v8.html";
 
 const WMO_JA: Record<number, string> = {
   0: "快晴", 1: "ほぼ快晴", 2: "晴れ時々くもり", 3: "くもり", 45: "霧", 48: "着氷性の霧",
@@ -572,7 +572,7 @@ function widgetHtml() {
           detail.appendChild(header);
 
           const grid = document.createElement("div");
-          grid.style.cssText = "display:grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; font-size: 13px; opacity: 0.9;";
+          grid.style.cssText = "display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; font-size: 13px; opacity: 0.9;";
           
           const fmtRange = (min, max, unit) => {
             const nMin = typeof min === "number" && isFinite(min) ? Math.round(min) : null;
@@ -584,12 +584,12 @@ function widgetHtml() {
 
           const stats = [
             { label: '🌡 気温', value: d.temp_min_c + '〜' + d.temp_max_c + '℃' },
-            { label: '☔ 降水確率', value: d.precip_prob_max_percent + '%' },
-            { label: '☔ 降水量', value: (d.precip_sum_mm || 0) + 'mm' },
             { label: '🌧 雨', value: ((d.rain_sum_mm ?? 0)) + 'mm' },
-            { label: '❄️ 雪', value: ((d.snowfall_sum_cm ?? 0)) + 'cm' },
-            { label: '💧 湿度', value: fmtRange(d.humidity_min_percent, d.humidity_max_percent, '%') },
+            { label: '☔ 降水確率', value: d.precip_prob_max_percent + '%' },
             { label: '📈 気圧', value: fmtRange(d.pressure_msl_min_hpa, d.pressure_msl_max_hpa, 'hPa') },
+            { label: '💧 湿度', value: fmtRange(d.humidity_min_percent, d.humidity_max_percent, '%') },
+            { label: '❄️ 雪', value: ((d.snowfall_sum_cm ?? 0)) + 'cm' },
+            { label: '☔ 降水量', value: (d.precip_sum_mm || 0) + 'mm' },
             { label: '💨 最大風速', value: (d.windspeed_max_kmh || "-") + 'km/h' },
           ];
 
