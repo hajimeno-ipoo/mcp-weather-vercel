@@ -16,7 +16,7 @@ const ASSET_BASE_URL_RAW =
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
 const ASSET_BASE_URL = ASSET_BASE_URL_RAW.replace(/\/+$/, "");
 const WIDGET_RESOURCE_DOMAINS = ASSET_BASE_URL ? [ASSET_BASE_URL] : [];
-const WIDGET_TEMPLATE_URI = "ui://widget/weather-v9.html";
+const WIDGET_TEMPLATE_URI = "ui://widget/weather-v10.html";
 
 const WMO_JA: Record<number, string> = {
   0: "快晴", 1: "ほぼ快晴", 2: "晴れ時々くもり", 3: "くもり", 45: "霧", 48: "着氷性の霧",
@@ -158,9 +158,71 @@ function widgetHtml() {
 	  .chart-x-axis { margin-left: 40px; margin-right: 10px; display: grid; grid-template-columns: repeat(7, 1fr); margin-top: 15px; font-size: 8px; color: #666; }
 	  .detail-panel { margin-top: 12px; padding: 14px; border-radius: 12px; background: rgba(0,0,0,0.04); font-size: 13px; line-height: 1.6; display: none; }
 
-  @media (prefers-color-scheme: dark) {
-    body { color: #eee; }
-    .container { border-color: rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); }
+	  .chart-header {
+	    position: absolute;
+	    left: 12px;
+	    right: 12px;
+	    top: 10px;
+	    display: flex;
+	    justify-content: space-between;
+	    align-items: center;
+	    gap: 10px;
+	    pointer-events: none;
+	  }
+	  .chart-title {
+	    font-size: 12px;
+	    font-weight: 800;
+	    opacity: 0.8;
+	    white-space: nowrap;
+	    overflow: hidden;
+	    text-overflow: ellipsis;
+	  }
+	  .chart-legend {
+	    display: flex;
+	    gap: 10px;
+	    font-size: 11px;
+	    font-weight: 800;
+	    opacity: 0.85;
+	    white-space: nowrap;
+	  }
+	  .chart-legend-item { display:flex; align-items:center; gap:6px; }
+	  .dot { width: 10px; height: 10px; border-radius: 999px; display:inline-block; }
+	  .dot.temp { background:#ff922b; }
+	  .dot.hum { background:#1c7ed6; border: 2px dashed rgba(28,126,214,0.6); box-sizing: border-box; }
+
+	  .chart-overlay {
+	    position: absolute;
+	    inset: 0;
+	    pointer-events: auto;
+	    touch-action: none;
+	  }
+	  .chart-tooltip {
+	    position: absolute;
+	    z-index: 2;
+	    background: rgba(255,255,255,0.92);
+	    color: #111;
+	    border: 1px solid rgba(0,0,0,0.12);
+	    border-radius: 10px;
+	    padding: 6px 8px;
+	    font-size: 11px;
+	    font-weight: 800;
+	    box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+	    pointer-events: none;
+	    transform: translate(8px, -10px);
+	    white-space: nowrap;
+	    display: none;
+	  }
+	  @media (prefers-color-scheme: dark) {
+	    .chart-tooltip {
+	      background: rgba(0,0,0,0.72);
+	      color: #fff;
+	      border-color: rgba(255,255,255,0.14);
+	    }
+	  }
+
+	  @media (prefers-color-scheme: dark) {
+	    body { color: #eee; }
+	    .container { border-color: rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); }
 	    .btn { background: #444; color: #fff; border-color: rgba(255,255,255,0.1); }
 	    .card { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
 	    .chart-wrapper { background: rgba(255,255,255,0.03); }
@@ -550,6 +612,20 @@ function widgetHtml() {
 	    hourlyWrapper.style.display = "none";
 	    hourlyChartWrapper = hourlyWrapper;
 
+	    const hourlyHeader = document.createElement("div");
+	    hourlyHeader.className = "chart-header";
+	    const hourlyTitle = document.createElement("div");
+	    hourlyTitle.className = "chart-title";
+	    hourlyTitle.textContent = "時間別（気温 / 湿度）";
+	    const hourlyLegend = document.createElement("div");
+	    hourlyLegend.className = "chart-legend";
+	    hourlyLegend.innerHTML =
+	      '<span class="chart-legend-item"><span class="dot temp"></span>気温</span>' +
+	      '<span class="chart-legend-item"><span class="dot hum"></span>湿度</span>';
+	    hourlyHeader.appendChild(hourlyTitle);
+	    hourlyHeader.appendChild(hourlyLegend);
+	    hourlyWrapper.appendChild(hourlyHeader);
+
 	    const yAxisTemp = document.createElement("div");
 	    yAxisTemp.className = "chart-y-axis";
 	    const yAxisHum = document.createElement("div");
@@ -569,11 +645,12 @@ function widgetHtml() {
 	    hourlyWrapper.appendChild(hourlyXAxis);
 	    main.appendChild(hourlyWrapper);
 
-	    function renderHourlyChart(day) {
+	    function renderHourlyChart(day, headerText) {
 	      try {
 	        const timeArr = day?.hourly?.time || [];
 	        const tArr = day?.hourly?.temperature_2m || [];
 	        const hArr = day?.hourly?.relativehumidity_2m || [];
+	        hourlyTitle.textContent = headerText || "時間別（気温 / 湿度）";
 	        if (!timeArr.length || !tArr.length) {
 	          hourlyArea.innerHTML = '<div style="text-align:center; padding:40px; opacity:0.6;">時間別データがありません</div>';
 	          yAxisTemp.innerHTML = "";
@@ -680,6 +757,98 @@ function widgetHtml() {
 	        svg.appendChild(humPath);
 
 	        hourlyArea.appendChild(svg);
+
+	        // ツールチップ＆フォーカス（指で触って数値表示）
+	        const overlay = document.createElement("div");
+	        overlay.className = "chart-overlay";
+	        const tooltip = document.createElement("div");
+	        tooltip.className = "chart-tooltip";
+	        hourlyArea.appendChild(overlay);
+	        hourlyArea.appendChild(tooltip);
+
+	        const focusLine = document.createElementNS(svgNS, "line");
+	        focusLine.setAttribute("x1", "0"); focusLine.setAttribute("y1", "0");
+	        focusLine.setAttribute("x2", "0"); focusLine.setAttribute("y2", "1000");
+	        focusLine.setAttribute("stroke", "rgba(0,0,0,0.18)");
+	        focusLine.setAttribute("stroke-width", "2");
+	        focusLine.style.display = "none";
+	        svg.appendChild(focusLine);
+
+	        const dotTemp = document.createElementNS(svgNS, "circle");
+	        dotTemp.setAttribute("r", "10");
+	        dotTemp.setAttribute("fill", "#fff");
+	        dotTemp.setAttribute("stroke", "#ff922b");
+	        dotTemp.setAttribute("stroke-width", "4");
+	        dotTemp.style.display = "none";
+	        svg.appendChild(dotTemp);
+
+	        const dotHum = document.createElementNS(svgNS, "circle");
+	        dotHum.setAttribute("r", "9");
+	        dotHum.setAttribute("fill", "#fff");
+	        dotHum.setAttribute("stroke", "#1c7ed6");
+	        dotHum.setAttribute("stroke-width", "4");
+	        dotHum.style.display = "none";
+	        svg.appendChild(dotHum);
+
+	        const showAtIndex = (idx, clientX, clientY) => {
+	          const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+	          const safeIdx = clamp(idx, 0, n - 1);
+	          const x = safeIdx * xStep;
+	          focusLine.setAttribute("x1", String(x));
+	          focusLine.setAttribute("x2", String(x));
+	          focusLine.style.display = "";
+
+	          if (temps[safeIdx] !== null) {
+	            dotTemp.setAttribute("cx", String(x));
+	            dotTemp.setAttribute("cy", String(getTempY(temps[safeIdx])));
+	            dotTemp.style.display = "";
+	          } else {
+	            dotTemp.style.display = "none";
+	          }
+	          if (hums[safeIdx] !== null) {
+	            dotHum.setAttribute("cx", String(x));
+	            dotHum.setAttribute("cy", String(getHumY(hums[safeIdx])));
+	            dotHum.style.display = "";
+	          } else {
+	            dotHum.style.display = "none";
+	          }
+
+	          const ts = String(timeArr[safeIdx] || "");
+	          const m = /T(\\d{2}:\\d{2})/.exec(ts);
+	          const hhmm = m && m[1] ? m[1] : (String(safeIdx).padStart(2, "0") + ":00");
+	          const tTxt = temps[safeIdx] === null ? "-" : (Math.round(temps[safeIdx] * 10) / 10 + "°");
+	          const hTxt = hums[safeIdx] === null ? "-" : (Math.round(hums[safeIdx]) + "%");
+	          tooltip.textContent = hhmm + "  " + tTxt + " / " + hTxt;
+	          tooltip.style.display = "block";
+
+	          const rect = hourlyArea.getBoundingClientRect();
+	          const xPx = clamp(clientX - rect.left, 0, rect.width);
+	          const yPx = clamp(clientY - rect.top, 0, rect.height);
+	          tooltip.style.left = xPx + "px";
+	          tooltip.style.top = yPx + "px";
+	        };
+
+	        const hideFocus = () => {
+	          focusLine.style.display = "none";
+	          dotTemp.style.display = "none";
+	          dotHum.style.display = "none";
+	          tooltip.style.display = "none";
+	        };
+
+	        overlay.addEventListener("pointerleave", hideFocus);
+	        overlay.addEventListener("pointerdown", (ev) => {
+	          try { overlay.setPointerCapture(ev.pointerId); } catch {}
+	          const rect = hourlyArea.getBoundingClientRect();
+	          const ratio = (ev.clientX - rect.left) / rect.width;
+	          const idx = Math.round(ratio * (n - 1));
+	          showAtIndex(idx, ev.clientX, ev.clientY);
+	        });
+	        overlay.addEventListener("pointermove", (ev) => {
+	          const rect = hourlyArea.getBoundingClientRect();
+	          const ratio = (ev.clientX - rect.left) / rect.width;
+	          const idx = Math.round(ratio * (n - 1));
+	          showAtIndex(idx, ev.clientX, ev.clientY);
+	        });
 	      } catch (e) {
 	        console.error("Hourly chart error:", e);
 	        hourlyArea.innerHTML = '<div style="text-align:center; padding:40px; opacity:0.6;">時間別グラフの表示に失敗しました</div>';
@@ -716,7 +885,7 @@ function widgetHtml() {
 	          detail.style.display = "block";
 	          if (weeklyChartWrapper) weeklyChartWrapper.style.display = "none";
 	          if (hourlyChartWrapper) hourlyChartWrapper.style.display = "";
-	          renderHourlyChart(d);
+	          renderHourlyChart(d, d.date + " (" + day + ") の時間別（気温 / 湿度）");
 	          
 	          detail.innerHTML = "";
 	          
