@@ -262,30 +262,28 @@ function widgetHtml() {
 	    .hourly-prob { color: #74c0fc; }
 	  }
 
-	  .candidate-list {
-	    display: flex;
-	    gap: 12px;
-	    overflow-x: auto;
-	    padding: 4px 0 8px;
-	    scroll-snap-type: x mandatory;
-	  }
+		  .candidate-list {
+		    display: grid;
+		    grid-template-columns: repeat(5, minmax(0, 1fr));
+		    gap: 10px;
+		    padding: 4px 0 8px;
+		  }
 
-	  .candidate-card {
-	    flex: 0 0 180px;
-	    padding: 14px 12px;
-	    border-radius: 16px;
-	    border: 1px solid rgba(0,0,0,0.08);
-	    background: rgba(255,255,255,0.4);
-	    cursor: pointer;
-	    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-	    display: flex;
-	    flex-direction: column;
-	    align-items: center;
-	    text-align: center;
-	    gap: 6px;
-	    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-	    scroll-snap-align: start;
-	  }
+		  .candidate-card {
+		    padding: 10px 8px;
+		    border-radius: 14px;
+		    border: 1px solid rgba(0,0,0,0.08);
+		    background: rgba(255,255,255,0.4);
+		    cursor: pointer;
+		    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+		    display: flex;
+		    flex-direction: column;
+		    align-items: center;
+		    text-align: center;
+		    gap: 4px;
+		    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+		    min-height: 108px;
+		  }
 	  .candidate-card:hover {
 	    transform: translateY(-2px);
 	    border-color: #ff922b;
@@ -295,30 +293,51 @@ function widgetHtml() {
 	  .candidate-card:active {
 	    transform: scale(0.98);
 	  }
-	  .candidate-flag {
-	    font-size: 26px;
-	    line-height: 1;
-	    margin-top: 2px;
-	  }
-	  .candidate-region {
-	    font-size: 11px;
-	    opacity: 0.6;
-	    font-weight: 500;
-	  }
-	  .candidate-name {
-	    font-size: 15px;
-	    font-weight: 700;
-	    color: #333;
-	  }
-	  .candidate-latlon {
-	    font-size: 11px;
-	    opacity: 0.6;
-	    font-weight: 500;
-	  }
-	  @media (prefers-color-scheme: dark) {
-	    .candidate-card { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
-	    .candidate-name { color: #eee; }
-	  }
+		  .candidate-flag {
+		    font-size: 22px;
+		    line-height: 1;
+		    margin-top: 2px;
+		  }
+		  .candidate-region {
+		    font-size: 10px;
+		    opacity: 0.6;
+		    font-weight: 500;
+		    white-space: nowrap;
+		    overflow: hidden;
+		    text-overflow: ellipsis;
+		    width: 100%;
+		  }
+		  .candidate-name {
+		    font-size: 13px;
+		    font-weight: 700;
+		    color: #333;
+		    white-space: nowrap;
+		    overflow: hidden;
+		    text-overflow: ellipsis;
+		    width: 100%;
+		  }
+		  .candidate-latlon {
+		    font-size: 10px;
+		    opacity: 0.6;
+		    font-weight: 500;
+		    white-space: nowrap;
+		    overflow: hidden;
+		    text-overflow: ellipsis;
+		    width: 100%;
+		  }
+		  @media (max-width: 900px) {
+		    .candidate-list { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+		  }
+		  @media (max-width: 720px) {
+		    .candidate-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+		  }
+		  @media (max-width: 520px) {
+		    .candidate-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+		  }
+		  @media (prefers-color-scheme: dark) {
+		    .candidate-card { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
+		    .candidate-name { color: #eee; }
+		  }
 </style>
 
 <div class="container">
