@@ -17,7 +17,7 @@ const ASSET_BASE_URL_RAW =
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
 const ASSET_BASE_URL = ASSET_BASE_URL_RAW.replace(/\/+$/, "");
 const WIDGET_RESOURCE_DOMAINS = ASSET_BASE_URL ? [ASSET_BASE_URL] : [];
-const WIDGET_TEMPLATE_URI = "ui://widget/weather-v13.html";
+const WIDGET_TEMPLATE_URI = "ui://widget/weather-v15.html";
 
 const WMO_JA: Record<number, string> = {
   0: "快晴", 1: "ほぼ快晴", 2: "晴れ時々くもり", 3: "くもり", 45: "霧", 48: "着氷性の霧",
@@ -265,13 +265,13 @@ function widgetHtml() {
 		  .candidate-list {
 		    display: grid;
 		    grid-template-columns: repeat(5, 100px);
-		    justify-content: space-between;
+		    justify-content: start;
 		    gap: 10px;
 		    padding: 4px 0 8px;
 		  }
 
 		  .candidate-card {
-		    padding: 12px;
+		    padding: 10px 8px;
 		    border-radius: 14px;
 		    border: 1px solid rgba(0,0,0,0.08);
 		    background: rgba(255,255,255,0.3);
@@ -281,9 +281,10 @@ function widgetHtml() {
 		    flex-direction: column;
 		    align-items: center;
 		    text-align: center;
-		    gap: 4px;
+		    gap: 2px;
 		    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-		    min-height: 100px;
+		    min-height: 0;
+		    aspect-ratio: 1 / 1;
 		  }
 	  .candidate-card:hover {
 	    transform: translateY(-2px);
@@ -295,7 +296,7 @@ function widgetHtml() {
 	    transform: scale(0.98);
 	  }
 		  .candidate-flag {
-		    font-size: 22px;
+		    font-size: 20px;
 		    line-height: 1;
 		    margin-top: 2px;
 		  }
@@ -303,6 +304,7 @@ function widgetHtml() {
 		    font-size: 10px;
 		    opacity: 0.6;
 		    font-weight: 500;
+		    line-height: 1.15;
 		    white-space: nowrap;
 		    overflow: hidden;
 		    text-overflow: ellipsis;
@@ -312,28 +314,30 @@ function widgetHtml() {
 		    font-size: 13px;
 		    font-weight: 700;
 		    color: #333;
+		    line-height: 1.15;
 		    white-space: nowrap;
 		    overflow: hidden;
 		    text-overflow: ellipsis;
 		    width: 100%;
 		  }
 		  .candidate-latlon {
-		    font-size: 10px;
+		    font-size: 9px;
 		    opacity: 0.6;
 		    font-weight: 500;
+		    line-height: 1.15;
 		    white-space: nowrap;
 		    overflow: hidden;
 		    text-overflow: ellipsis;
 		    width: 100%;
 		  }
 		  @media (max-width: 900px) {
-		    .candidate-list { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+		    .candidate-list { grid-template-columns: repeat(4, 100px); }
 		  }
 		  @media (max-width: 720px) {
-		    .candidate-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+		    .candidate-list { grid-template-columns: repeat(3, 100px); }
 		  }
 		  @media (max-width: 520px) {
-		    .candidate-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+		    .candidate-list { grid-template-columns: repeat(2, 100px); }
 		  }
 		  @media (prefers-color-scheme: dark) {
 		    .candidate-card { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
