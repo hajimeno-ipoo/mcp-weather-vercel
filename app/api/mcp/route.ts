@@ -16,7 +16,7 @@ const ASSET_BASE_URL_RAW =
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
 const ASSET_BASE_URL = ASSET_BASE_URL_RAW.replace(/\/+$/, "");
 const WIDGET_RESOURCE_DOMAINS = ASSET_BASE_URL ? [ASSET_BASE_URL] : [];
-const WIDGET_TEMPLATE_URI = "ui://widget/weather-v4.html";
+const WIDGET_TEMPLATE_URI = "ui://widget/weather-v5.html";
 
 const WMO_JA: Record<number, string> = {
   0: "快晴", 1: "ほぼ快晴", 2: "晴れ時々くもり", 3: "くもり", 45: "霧", 48: "着氷性の霧",
@@ -242,8 +242,14 @@ function widgetHtml() {
 
   const ASSET_BASE_URL = ${JSON.stringify(ASSET_BASE_URL)};
   const ICON_PNG_BASE64 = ${JSON.stringify(ICON_PNG_BASE64)};
+  const WMO_JA = ${JSON.stringify(WMO_JA)};
   const WMO_ICON_FILES = ${JSON.stringify(WMO_ICON_FILES)};
   const DEFAULT_ICON_FILE = ${JSON.stringify(DEFAULT_ICON_FILE)};
+
+  function wmoToJa(code) {
+    if (code === null || code === undefined) return "不明";
+    return WMO_JA[code] || ("不明（code=" + code + "）");
+  }
 
   function wmoToIconUrl(code, isNight) {
     const base = ASSET_BASE_URL || "";
@@ -619,20 +625,31 @@ function widgetHtml() {
               iconDiv.style.cssText = "font-size:24px; margin:8px 0;";
               const code = d.hourly.weathercode[i];
               const iconUrl = wmoToIconUrl(code, isNightHour(d.hourly.time[i]));
-              iconDiv.innerHTML = '<img src="' + iconUrl + '" width="28" height="28" style="width:28px; height:28px; object-fit:contain; display:block; margin:0 auto;" />';
+              iconDiv.innerHTML = '<img src="' + iconUrl + '" width="40" height="40" style="width:40px; height:40px; object-fit:contain; display:block; margin:0 auto;" />';
               
-              const tempDiv = document.createElement("div");
-              tempDiv.style.cssText = "font-weight:800; font-size:15px; margin-bottom:4px;";
-              tempDiv.textContent = d.hourly.temperature_2m[i] + '°';
-              
-              const probDiv = document.createElement("div");
-              probDiv.style.cssText = "font-size:10px; font-weight:600; color: #1c7ed6;";
-              probDiv.textContent = '☔ ' + d.hourly.precipitation_probability[i] + '%';
+              // 時間別カード（時間→アイコン→天気内容→温度/湿度）
+              timeDiv.style.cssText = "opacity:0.6; margin-bottom:8px; font-size:11px; font-weight:700;";
+              iconDiv.style.cssText = "height:44px; margin:6px 0 8px 0; display:flex; align-items:center; justify-content:center;";
+
+              const summaryDiv = document.createElement("div");
+              summaryDiv.style.cssText = "font-size:11px; font-weight:700; margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;";
+              summaryDiv.textContent = wmoToJa(code);
+
+              const hum = d.hourly.relativehumidity_2m && d.hourly.relativehumidity_2m[i] !== undefined
+                ? d.hourly.relativehumidity_2m[i]
+                : null;
+              const thDiv = document.createElement("div");
+              thDiv.style.cssText = "font-weight:800; font-size:15px; margin-bottom:2px;";
+              thDiv.textContent = d.hourly.temperature_2m[i] + '°';
+              const humDiv = document.createElement("div");
+              humDiv.style.cssText = "font-size:11px; font-weight:700; color: #1c7ed6;";
+              humDiv.textContent = (hum === null ? "湿度: -" : ("湿度: " + hum + "%"));
               
               item.appendChild(timeDiv);
               item.appendChild(iconDiv);
-              item.appendChild(tempDiv);
-              item.appendChild(probDiv);
+              item.appendChild(summaryDiv);
+              item.appendChild(thDiv);
+              item.appendChild(humDiv);
               hContainer.appendChild(item);
             });
             detail.appendChild(hContainer);
