@@ -16,7 +16,7 @@ const ASSET_BASE_URL_RAW =
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
 const ASSET_BASE_URL = ASSET_BASE_URL_RAW.replace(/\/+$/, "");
 const WIDGET_RESOURCE_DOMAINS = ASSET_BASE_URL ? [ASSET_BASE_URL] : [];
-const WIDGET_TEMPLATE_URI = "ui://widget/weather-v10.html";
+const WIDGET_TEMPLATE_URI = "ui://widget/weather-v11.html";
 
 const WMO_JA: Record<number, string> = {
   0: "快晴", 1: "ほぼ快晴", 2: "晴れ時々くもり", 3: "くもり", 45: "霧", 48: "着氷性の霧",
@@ -208,7 +208,6 @@ function widgetHtml() {
 	    font-weight: 800;
 	    box-shadow: 0 6px 16px rgba(0,0,0,0.08);
 	    pointer-events: none;
-	    transform: translate(8px, -10px);
 	    white-space: nowrap;
 	    display: none;
 	  }
@@ -454,11 +453,27 @@ function widgetHtml() {
 	      chartWrapper.className = "chart-wrapper";
 	      weeklyChartWrapper = chartWrapper;
 
+	      const weeklyHeader = document.createElement("div");
+	      weeklyHeader.className = "chart-header";
+	      const weeklyTitle = document.createElement("div");
+	      weeklyTitle.className = "chart-title";
+	      const start = daily?.[0]?.date;
+	      const end = daily?.[daily.length - 1]?.date;
+	      weeklyTitle.textContent = (start && end ? ("期間: " + start + "〜" + end) : "週間") + "（最高/最低気温：℃）";
+	      const weeklyLegend = document.createElement("div");
+	      weeklyLegend.className = "chart-legend";
+	      weeklyLegend.innerHTML =
+	        '<span class="chart-legend-item"><span class="dot temp"></span>最高(℃)</span>' +
+	        '<span class="chart-legend-item"><span class="dot hum"></span>最低(℃)</span>';
+	      weeklyHeader.appendChild(weeklyTitle);
+	      weeklyHeader.appendChild(weeklyLegend);
+	      chartWrapper.appendChild(weeklyHeader);
+
 	      const yAxis = document.createElement("div");
 	      yAxis.className = "chart-y-axis";
 	      let yLabels = "";
-      for (let t = maxT; t >= minT; t -= 5) {
-        yLabels += '<span>' + t + '°</span>';
+	      for (let t = maxT; t >= minT; t -= 5) {
+	        yLabels += '<span>' + t + '°</span>';
       }
       yAxis.innerHTML = yLabels;
       chartWrapper.appendChild(yAxis);
@@ -616,12 +631,12 @@ function widgetHtml() {
 	    hourlyHeader.className = "chart-header";
 	    const hourlyTitle = document.createElement("div");
 	    hourlyTitle.className = "chart-title";
-	    hourlyTitle.textContent = "時間別（気温 / 湿度）";
+	    hourlyTitle.textContent = "時間別（気温[℃] / 湿度[%]）";
 	    const hourlyLegend = document.createElement("div");
 	    hourlyLegend.className = "chart-legend";
 	    hourlyLegend.innerHTML =
-	      '<span class="chart-legend-item"><span class="dot temp"></span>気温</span>' +
-	      '<span class="chart-legend-item"><span class="dot hum"></span>湿度</span>';
+	      '<span class="chart-legend-item"><span class="dot temp"></span>気温(℃)</span>' +
+	      '<span class="chart-legend-item"><span class="dot hum"></span>湿度(%)</span>';
 	    hourlyHeader.appendChild(hourlyTitle);
 	    hourlyHeader.appendChild(hourlyLegend);
 	    hourlyWrapper.appendChild(hourlyHeader);
@@ -650,7 +665,7 @@ function widgetHtml() {
 	        const timeArr = day?.hourly?.time || [];
 	        const tArr = day?.hourly?.temperature_2m || [];
 	        const hArr = day?.hourly?.relativehumidity_2m || [];
-	        hourlyTitle.textContent = headerText || "時間別（気温 / 湿度）";
+	        hourlyTitle.textContent = headerText || "時間別（気温[℃] / 湿度[%]）";
 	        if (!timeArr.length || !tArr.length) {
 	          hourlyArea.innerHTML = '<div style="text-align:center; padding:40px; opacity:0.6;">時間別データがありません</div>';
 	          yAxisTemp.innerHTML = "";
@@ -824,8 +839,18 @@ function widgetHtml() {
 	          const rect = hourlyArea.getBoundingClientRect();
 	          const xPx = clamp(clientX - rect.left, 0, rect.width);
 	          const yPx = clamp(clientY - rect.top, 0, rect.height);
-	          tooltip.style.left = xPx + "px";
-	          tooltip.style.top = yPx + "px";
+
+	          // 右端(23:00等)で見えなくなるのを防ぐ
+	          const w = tooltip.offsetWidth || 0;
+	          const h = tooltip.offsetHeight || 0;
+	          let left = xPx + 10;
+	          let top = yPx - h - 12;
+	          if (left + w > rect.width) left = xPx - w - 10;
+	          if (left < 0) left = 0;
+	          if (top < 0) top = yPx + 12;
+	          if (top + h > rect.height) top = rect.height - h;
+	          tooltip.style.left = left + "px";
+	          tooltip.style.top = top + "px";
 	        };
 
 	        const hideFocus = () => {
