@@ -17,7 +17,7 @@ const ASSET_BASE_URL_RAW =
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
 const ASSET_BASE_URL = ASSET_BASE_URL_RAW.replace(/\/+$/, "");
 const WIDGET_RESOURCE_DOMAINS = ASSET_BASE_URL ? [ASSET_BASE_URL] : [];
-const WIDGET_TEMPLATE_URI = "ui://widget/weather-v19.html";
+const WIDGET_TEMPLATE_URI = "ui://widget/weather-v20.html";
 
 const WMO_JA: Record<number, string> = {
   0: "快晴", 1: "ほぼ快晴", 2: "晴れ時々くもり", 3: "くもり", 45: "霧", 48: "着氷性の霧",
@@ -367,24 +367,112 @@ function widgetHtml() {
   let lastValidInput = null;
   let currentViewData = null;
 
-  const ASSET_BASE_URL = ${JSON.stringify(ASSET_BASE_URL)};
-  const ICON_PNG_BASE64 = ${JSON.stringify(ICON_PNG_BASE64)};
-  const WMO_JA = ${JSON.stringify(WMO_JA)};
-  const WMO_ICON_FILES = ${JSON.stringify(WMO_ICON_FILES)};
-  const DEFAULT_ICON_FILE = ${JSON.stringify(DEFAULT_ICON_FILE)};
+	  const ASSET_BASE_URL = ${JSON.stringify(ASSET_BASE_URL)};
+	  const FORECAST_API_URL = ${JSON.stringify(CONFIG.FORECAST_API_URL)};
+	  const ICON_PNG_BASE64 = ${JSON.stringify(ICON_PNG_BASE64)};
+	  const WMO_JA = ${JSON.stringify(WMO_JA)};
+	  const WMO_ICON_FILES = ${JSON.stringify(WMO_ICON_FILES)};
+	  const DEFAULT_ICON_FILE = ${JSON.stringify(DEFAULT_ICON_FILE)};
 
 	  function wmoToJa(code) {
 	    if (code === null || code === undefined) return "不明";
 	    return WMO_JA[code] || ("不明（code=" + code + "）");
 	  }
 
-	  function countryCodeToFlag(code) {
-	    if (!code) return "";
-	    const cc = String(code).toUpperCase();
-	    if (!/^[A-Z]{2}$/.test(cc)) return "";
-	    const base = 127397;
-	    return String.fromCodePoint(base + cc.charCodeAt(0), base + cc.charCodeAt(1));
-	  }
+		  function countryCodeToFlag(code) {
+		    if (!code) return "";
+		    const cc = String(code).toUpperCase();
+		    if (!/^[A-Z]{2}$/.test(cc)) return "";
+		    const base = 127397;
+		    return String.fromCodePoint(base + cc.charCodeAt(0), base + cc.charCodeAt(1));
+		  }
+
+		  async function fetchForecastDirect(input) {
+		    const url = new URL(FORECAST_API_URL);
+		    url.searchParams.set("latitude", String(input.latitude));
+		    url.searchParams.set("longitude", String(input.longitude));
+		    url.searchParams.set("timezone", "Asia/Tokyo");
+		    url.searchParams.set("current_weather", "true");
+		    url.searchParams.set("forecast_days", "7");
+		    url.searchParams.set("daily", [
+		      "weathercode",
+		      "temperature_2m_max",
+		      "temperature_2m_min",
+		      "precipitation_probability_max",
+		      "precipitation_sum",
+		      "rain_sum",
+		      "snowfall_sum",
+		      "windspeed_10m_max"
+		    ].join(","));
+		    url.searchParams.set("hourly", [
+		      "temperature_2m",
+		      "weathercode",
+		      "precipitation_probability",
+		      "relativehumidity_2m",
+		      "pressure_msl"
+		    ].join(","));
+
+		    const r = await fetch(url.toString());
+		    if (!r.ok) throw new Error("HTTP " + r.status);
+		    const f = await r.json();
+
+		    const rangeFromNumbers = (values) => {
+		      if (!values || values.length === 0) return null;
+		      const nums = values.filter((v) => typeof v === "number" && Number.isFinite(v));
+		      if (nums.length === 0) return null;
+		      return { min: Math.min(...nums), max: Math.max(...nums) };
+		    };
+
+		    const times = (f.daily && f.daily.time) ? f.daily.time : [];
+		    const daily = times.map((d, i) => {
+		      const hourlyStart = i * 24;
+		      const hourlyEnd = hourlyStart + 24;
+		      const hourlyData = f.hourly ? {
+		        time: (f.hourly.time || []).slice(hourlyStart, hourlyEnd),
+		        weathercode: (f.hourly.weathercode || []).slice(hourlyStart, hourlyEnd),
+		        temperature_2m: (f.hourly.temperature_2m || []).slice(hourlyStart, hourlyEnd),
+		        precipitation_probability: (f.hourly.precipitation_probability || []).slice(hourlyStart, hourlyEnd),
+		        relativehumidity_2m: (f.hourly.relativehumidity_2m || []).slice(hourlyStart, hourlyEnd),
+		        pressure_msl: (f.hourly.pressure_msl || []).slice(hourlyStart, hourlyEnd),
+		      } : undefined;
+
+		      const humidityRange = rangeFromNumbers(f.hourly && f.hourly.relativehumidity_2m ? f.hourly.relativehumidity_2m.slice(hourlyStart, hourlyEnd) : undefined);
+		      const pressureRange = rangeFromNumbers(f.hourly && f.hourly.pressure_msl ? f.hourly.pressure_msl.slice(hourlyStart, hourlyEnd) : undefined);
+		      const weathercode = f.daily && f.daily.weathercode ? f.daily.weathercode[i] : undefined;
+
+		      return {
+		        date: d,
+		        weathercode,
+		        summary_ja: wmoToJa(weathercode),
+		        icon: wmoToIcon(weathercode),
+		        temp_max_c: f.daily && f.daily.temperature_2m_max ? f.daily.temperature_2m_max[i] : undefined,
+		        temp_min_c: f.daily && f.daily.temperature_2m_min ? f.daily.temperature_2m_min[i] : undefined,
+		        precip_prob_max_percent: f.daily && f.daily.precipitation_probability_max ? f.daily.precipitation_probability_max[i] : undefined,
+		        precip_sum_mm: f.daily && f.daily.precipitation_sum ? f.daily.precipitation_sum[i] : undefined,
+		        rain_sum_mm: f.daily && f.daily.rain_sum ? f.daily.rain_sum[i] : undefined,
+		        snowfall_sum_cm: f.daily && f.daily.snowfall_sum ? f.daily.snowfall_sum[i] : undefined,
+		        windspeed_max_kmh: f.daily && f.daily.windspeed_10m_max ? f.daily.windspeed_10m_max[i] : undefined,
+		        humidity_min_percent: humidityRange ? humidityRange.min : undefined,
+		        humidity_max_percent: humidityRange ? humidityRange.max : undefined,
+		        pressure_msl_min_hpa: pressureRange ? pressureRange.min : undefined,
+		        pressure_msl_max_hpa: pressureRange ? pressureRange.max : undefined,
+		        hourly: hourlyData,
+		      };
+		    });
+
+		    return {
+		      structuredContent: {
+		        kind: "forecast",
+		        location: {
+		          name: input.label,
+		          latitude: input.latitude,
+		          longitude: input.longitude
+		        },
+		        daily
+		      },
+		      content: [{ type: "text", text: "天気を取得しました" }]
+		    };
+		  }
 
   function wmoToIconUrl(code, isNight) {
     const base = ASSET_BASE_URL || "";
@@ -500,17 +588,15 @@ function widgetHtml() {
 	        <div class="candidate-latlon">\${latLon}</div>
 	      \`;
 	      
-	      card.onclick = async () => {
-	        headline.textContent = "取得中...";
-	        main.innerHTML = '<div style="text-align:center; padding:40px; opacity:0.6;">予報を読み込み中...</div>';
-	        const fullLabel = (region ? region + " " : "") + name;
-	        // 先に保存しておく（取得失敗時でも「更新」できるように）
-	        lastValidInput = { latitude: c.latitude, longitude: c.longitude, label: fullLabel };
-	        const next = await window.openai.callTool("get_forecast", {
-	          latitude: c.latitude, longitude: c.longitude, days: 7, label: fullLabel
-	        });
-	        render(next);
-	      };
+		      card.onclick = async () => {
+		        headline.textContent = "取得中...";
+		        main.innerHTML = '<div style="text-align:center; padding:40px; opacity:0.6;">予報を読み込み中...</div>';
+		        const fullLabel = (region ? region + " " : "") + name;
+		        // 先に保存しておく（取得失敗時でも「更新」できるように）
+		        lastValidInput = { latitude: c.latitude, longitude: c.longitude, label: fullLabel };
+		        const next = await fetchForecastDirect({ latitude: c.latitude, longitude: c.longitude, label: fullLabel });
+		        render(next);
+		      };
 	      list.appendChild(card);
 	    });
 	  }
@@ -1118,13 +1204,11 @@ function widgetHtml() {
         Number.isFinite(input.longitude);
       if (!hasLatLon) throw new Error("位置情報が特定できません");
       
-	      const next = await window.openai.callTool("get_forecast", {
-	        latitude: input.latitude, longitude: input.longitude, days: 7, label: input.label
-	      });
-      if (next) render(next);
-      else throw new Error("レスポンスが空です");
-    } catch (e) {
-      console.error("Update process failed:", e);
+		      const next = await fetchForecastDirect({ latitude: input.latitude, longitude: input.longitude, label: input.label });
+	      if (next) render(next);
+	      else throw new Error("レスポンスが空です");
+	    } catch (e) {
+	      console.error("Update process failed:", e);
       headline.textContent = "更新失敗 (" + e.message + ")";
       setTimeout(() => { headline.textContent = originalText; }, 3000);
     }
@@ -1177,7 +1261,8 @@ const handler = createMcpHandler(
     });
 
     server.registerTool("get_forecast", {
-      title: "天気取得", description: "天気予報を取得します。",
+      title: "天気取得（非推奨）",
+      description: "天気予報を取得します（互換用・非推奨）。通常は候補地カード選択でウィジェットが直接取得します。",
       inputSchema: getForecastSchema,
       _meta: { "openai/outputTemplate": WIDGET_TEMPLATE_URI, "openai/widgetAccessible": true }
     }, async (input: any) => {
