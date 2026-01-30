@@ -16,7 +16,7 @@ const ASSET_BASE_URL_RAW =
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
 const ASSET_BASE_URL = ASSET_BASE_URL_RAW.replace(/\/+$/, "");
 const WIDGET_RESOURCE_DOMAINS = ASSET_BASE_URL ? [ASSET_BASE_URL] : [];
-const WIDGET_TEMPLATE_URI = "ui://widget/weather-v3.html";
+const WIDGET_TEMPLATE_URI = "ui://widget/weather-v4.html";
 
 const WMO_JA: Record<number, string> = {
   0: "快晴", 1: "ほぼ快晴", 2: "晴れ時々くもり", 3: "くもり", 45: "霧", 48: "着氷性の霧",
@@ -334,12 +334,19 @@ function widgetHtml() {
       
       const region = c.admin1 || "";
       const name = c.name;
+      const country = c.country || "";
+      const lat = typeof c.latitude === "number" ? c.latitude : null;
+      const lon = typeof c.longitude === "number" ? c.longitude : null;
+      const latLon = (lat !== null && lon !== null)
+        ? (lat.toFixed(4) + " / " + lon.toFixed(4))
+        : "";
       
       card.innerHTML = \`
         <div class="candidate-icon">📍</div>
         <div class="candidate-info">
-          <div class="candidate-region">\${region}</div>
+          <div class="candidate-region">\${[country, region].filter(Boolean).join(" / ")}</div>
           <div class="candidate-name">\${name}</div>
+          <div style="font-size: 11px; opacity: 0.6; margin-top: 2px; font-weight: 500;">\${latLon}</div>
         </div>
         <div style="opacity: 0.3; font-size: 18px;">›</div>
       \`;
