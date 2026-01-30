@@ -16,7 +16,7 @@ const ASSET_BASE_URL_RAW =
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
 const ASSET_BASE_URL = ASSET_BASE_URL_RAW.replace(/\/+$/, "");
 const WIDGET_RESOURCE_DOMAINS = ASSET_BASE_URL ? [ASSET_BASE_URL] : [];
-const WIDGET_TEMPLATE_URI = "ui://widget/weather-v5.html";
+const WIDGET_TEMPLATE_URI = "ui://widget/weather-v7.html";
 
 const WMO_JA: Record<number, string> = {
   0: "快晴", 1: "ほぼ快晴", 2: "晴れ時々くもり", 3: "くもり", 45: "霧", 48: "着氷性の霧",
@@ -615,7 +615,7 @@ function widgetHtml() {
               const item = document.createElement("div");
               const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
               
-              item.style.cssText = "flex: 0 0 75px; scroll-snap-align: start; text-align: center; padding: 12px 6px; border-radius: 14px; border: 1px solid rgba(128,128,128,0.2); background: " + (isDark ? 'rgba(255,255,255,0.08)' : '#ffffff') + "; box-shadow: 0 2px 6px rgba(0,0,0,0.05); display: inline-block; vertical-align: top;";
+              item.style.cssText = "flex: 0 0 96px; scroll-snap-align: start; text-align: center; padding: 10px 8px; border-radius: 14px; border: 1px solid rgba(128,128,128,0.2); background: " + (isDark ? 'rgba(255,255,255,0.08)' : '#ffffff') + "; box-shadow: 0 2px 6px rgba(0,0,0,0.05); display: inline-block; vertical-align: top;";
               
               const timeDiv = document.createElement("div");
               timeDiv.style.cssText = "opacity:0.6; margin-bottom:6px; font-size:11px; font-weight:600;";
@@ -628,28 +628,35 @@ function widgetHtml() {
               iconDiv.innerHTML = '<img src="' + iconUrl + '" width="40" height="40" style="width:40px; height:40px; object-fit:contain; display:block; margin:0 auto;" />';
               
               // 時間別カード（時間→アイコン→天気内容→温度/湿度）
-              timeDiv.style.cssText = "opacity:0.6; margin-bottom:8px; font-size:11px; font-weight:700;";
-              iconDiv.style.cssText = "height:44px; margin:6px 0 8px 0; display:flex; align-items:center; justify-content:center;";
+              timeDiv.style.cssText = "opacity:0.6; margin-bottom:6px; font-size:12px; font-weight:800;";
+              iconDiv.style.cssText = "height:44px; margin:4px 0 6px 0; display:flex; align-items:center; justify-content:center;";
 
               const summaryDiv = document.createElement("div");
-              summaryDiv.style.cssText = "font-size:11px; font-weight:700; margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;";
+              summaryDiv.style.cssText = "font-size:11px; font-weight:700; margin-bottom:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;";
               summaryDiv.textContent = wmoToJa(code);
 
               const hum = d.hourly.relativehumidity_2m && d.hourly.relativehumidity_2m[i] !== undefined
                 ? d.hourly.relativehumidity_2m[i]
                 : null;
-              const thDiv = document.createElement("div");
-              thDiv.style.cssText = "font-weight:800; font-size:15px; margin-bottom:2px;";
-              thDiv.textContent = d.hourly.temperature_2m[i] + '°';
-              const humDiv = document.createElement("div");
-              humDiv.style.cssText = "font-size:11px; font-weight:700; color: #1c7ed6;";
-              humDiv.textContent = (hum === null ? "湿度: -" : ("湿度: " + hum + "%"));
+              const thRow = document.createElement("div");
+              thRow.style.cssText = "display:flex; align-items:baseline; justify-content:center; gap:10px; font-weight:900; font-size:15px; line-height:1;";
+
+              const tSpan = document.createElement("span");
+              tSpan.textContent = d.hourly.temperature_2m[i] + "°";
+              const slash = document.createElement("span");
+              slash.style.opacity = "0.5";
+              slash.textContent = "/";
+              const hSpan = document.createElement("span");
+              hSpan.style.color = "#1c7ed6";
+              hSpan.textContent = (hum === null ? "-" : (hum + "%"));
+              thRow.appendChild(tSpan);
+              thRow.appendChild(slash);
+              thRow.appendChild(hSpan);
               
               item.appendChild(timeDiv);
               item.appendChild(iconDiv);
               item.appendChild(summaryDiv);
-              item.appendChild(thDiv);
-              item.appendChild(humDiv);
+              item.appendChild(thRow);
               hContainer.appendChild(item);
             });
             detail.appendChild(hContainer);
