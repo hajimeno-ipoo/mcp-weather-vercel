@@ -17,7 +17,7 @@ const ASSET_BASE_URL_RAW =
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
 const ASSET_BASE_URL = ASSET_BASE_URL_RAW.replace(/\/+$/, "");
 const WIDGET_RESOURCE_DOMAINS = ASSET_BASE_URL ? [ASSET_BASE_URL] : [];
-const WIDGET_TEMPLATE_URI = "ui://widget/weather-v15.html";
+const WIDGET_TEMPLATE_URI = "ui://widget/weather-v16.html";
 
 const WMO_JA: Record<number, string> = {
   0: "快晴", 1: "ほぼ快晴", 2: "晴れ時々くもり", 3: "くもり", 45: "霧", 48: "着氷性の霧",
@@ -264,14 +264,14 @@ function widgetHtml() {
 
 		  .candidate-list {
 		    display: grid;
-		    grid-template-columns: repeat(5, 100px);
+		    grid-template-columns: repeat(5, 126px);
 		    justify-content: start;
 		    gap: 10px;
 		    padding: 4px 0 8px;
 		  }
 
 		  .candidate-card {
-		    padding: 10px 8px;
+		    padding: 12px;
 		    border-radius: 14px;
 		    border: 1px solid rgba(0,0,0,0.08);
 		    background: rgba(255,255,255,0.3);
@@ -284,7 +284,7 @@ function widgetHtml() {
 		    gap: 2px;
 		    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
 		    min-height: 0;
-		    aspect-ratio: 1 / 1;
+		    aspect-ratio: 126 / 115;
 		  }
 	  .candidate-card:hover {
 	    transform: translateY(-2px);
@@ -331,13 +331,13 @@ function widgetHtml() {
 		    width: 100%;
 		  }
 		  @media (max-width: 900px) {
-		    .candidate-list { grid-template-columns: repeat(4, 100px); }
+		    .candidate-list { grid-template-columns: repeat(4, 126px); }
 		  }
 		  @media (max-width: 720px) {
-		    .candidate-list { grid-template-columns: repeat(3, 100px); }
+		    .candidate-list { grid-template-columns: repeat(3, 126px); }
 		  }
 		  @media (max-width: 520px) {
-		    .candidate-list { grid-template-columns: repeat(2, 100px); }
+		    .candidate-list { grid-template-columns: repeat(2, 126px); }
 		  }
 		  @media (prefers-color-scheme: dark) {
 		    .candidate-card { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
