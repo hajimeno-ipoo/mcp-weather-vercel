@@ -9,10 +9,10 @@ ChatGPT の Developer mode から接続できる MCP（Model Context Protocol）
 ### ツール
 
 - **geocode_place**: 地名を入力すると、複数の候補地（緯度経度）を返します
-  - パラメータ: `place` (必須)、`count` (オプション、デフォルト: 5)、`days` (オプション、デフォルト: 3)
+  - パラメータ: `place` (必須)、`count` (オプション、デフォルト: 20 / 最大: 20)
   
 - **get_forecast**: 緯度経度から天気予報データを取得します
-  - パラメータ: `latitude` (必須)、`longitude` (必須)、`days` (オプション)、`timezone` (オプション)
+  - パラメータ: `latitude` (必須)、`longitude` (必須)、`days` (オプション、常に7日で返します)、`timezone` (オプション)
 
 ### UI
 
@@ -122,11 +122,10 @@ ChatGPT:
   "method": "tools/call",
   "params": {
     "name": "geocode_place",
-    "arguments": {
-      "place": "Tokyo",
-      "count": 5,
-      "days": 3
-    }
+	    "arguments": {
+	      "place": "Tokyo",
+	      "count": 20
+	    }
   }
 }
 ```
@@ -230,8 +229,8 @@ ChatGPT:
 | `NEXT_PUBLIC_FORECAST_API_URL` | `https://api.open-meteo.com/v1/forecast` | 天気予報 API の URL |
 | `MCP_REQUEST_TIMEOUT` | `30` | API リクエストのタイムアウト（秒） |
 | `MCP_RETRY_ATTEMPTS` | `3` | API リクエスト失敗時のリトライ回数 |
-| `NEXT_PUBLIC_GEOCODING_DEFAULT_COUNT` | `5` | ジオコーディングのデフォルト結果数 |
-| `NEXT_PUBLIC_FORECAST_DEFAULT_DAYS` | `3` | 予報のデフォルト日数 |
+| `NEXT_PUBLIC_GEOCODING_DEFAULT_COUNT` | `20` | ジオコーディングのデフォルト結果数 |
+| `NEXT_PUBLIC_FORECAST_DEFAULT_DAYS` | `7` | 予報のデフォルト日数（常に7日） |
 | `NEXT_PUBLIC_DEFAULT_TIMEZONE` | `Asia/Tokyo` | デフォルトタイムゾーン |
 
 ## トラブルシューティング

@@ -17,7 +17,7 @@ const ASSET_BASE_URL_RAW =
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
 const ASSET_BASE_URL = ASSET_BASE_URL_RAW.replace(/\/+$/, "");
 const WIDGET_RESOURCE_DOMAINS = ASSET_BASE_URL ? [ASSET_BASE_URL] : [];
-const WIDGET_TEMPLATE_URI = "ui://widget/weather-v17.html";
+const WIDGET_TEMPLATE_URI = "ui://widget/weather-v18.html";
 
 const WMO_JA: Record<number, string> = {
   0: "快晴", 1: "ほぼ快晴", 2: "晴れ時々くもり", 3: "くもり", 45: "霧", 48: "着氷性の霧",
@@ -1123,9 +1123,9 @@ function widgetHtml() {
         Number.isFinite(input.longitude);
       if (!hasLatLon) throw new Error("位置情報が特定できません");
       
-      const next = await window.openai.callTool("get_forecast", {
-        latitude: input.latitude, longitude: input.longitude, days: input.days || 7, label: input.label
-      });
+	      const next = await window.openai.callTool("get_forecast", {
+	        latitude: input.latitude, longitude: input.longitude, days: 7, label: input.label
+	      });
       if (next) render(next);
       else throw new Error("レスポンスが空です");
     } catch (e) {
@@ -1144,13 +1144,14 @@ function widgetHtml() {
 
 const geocodePlaceSchema = z.object({
   place: z.string().describe("場所名"),
-  count: z.number().int().min(1).max(10).default(5),
+  count: z.number().int().min(1).max(20).default(20),
 });
 
 const getForecastSchema = z.object({
   latitude: z.number(),
   longitude: z.number(),
-  days: z.number().int().min(1).max(7).default(7),
+  // 週間表示に固定（クライアントが何を渡しても7日にする）
+  days: z.number().int().min(1).max(7).default(7).optional(),
   label: z.string().optional(),
 });
 
@@ -1176,7 +1177,7 @@ const handler = createMcpHandler(
       inputSchema: geocodePlaceSchema,
       _meta: { "openai/outputTemplate": WIDGET_TEMPLATE_URI, "openai/widgetAccessible": true }
     }, async (input: any) => {
-      const candidates = await geocodeCandidates(input.place, input.count);
+      const candidates = await geocodeCandidates(input.place, 20);
       return { structuredContent: { kind: "geocode", query: input.place, candidates }, content: [{ type: "text", text: "候補を表示しました" }] };
     });
 
@@ -1185,7 +1186,7 @@ const handler = createMcpHandler(
       inputSchema: getForecastSchema,
       _meta: { "openai/outputTemplate": WIDGET_TEMPLATE_URI, "openai/widgetAccessible": true }
     }, async (input: any) => {
-      const f = await forecastByCoords(input.latitude, input.longitude, input.days);
+      const f = await forecastByCoords(input.latitude, input.longitude, 7);
       const rangeFromNumbers = (values: Array<number | null | undefined> | undefined) => {
         if (!values || values.length === 0) return null;
         const nums = values.filter((v): v is number => typeof v === "number" && Number.isFinite(v));
