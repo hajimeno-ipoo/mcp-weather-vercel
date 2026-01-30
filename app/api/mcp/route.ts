@@ -17,7 +17,7 @@ const ASSET_BASE_URL_RAW =
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
 const ASSET_BASE_URL = ASSET_BASE_URL_RAW.replace(/\/+$/, "");
 const WIDGET_RESOURCE_DOMAINS = ASSET_BASE_URL ? [ASSET_BASE_URL] : [];
-const WIDGET_TEMPLATE_URI = "ui://widget/weather-v22.html";
+const WIDGET_TEMPLATE_URI = "ui://widget/weather-v23.html";
 
 const WMO_JA: Record<number, string> = {
   0: "快晴", 1: "ほぼ快晴", 2: "晴れ時々くもり", 3: "くもり", 45: "霧", 48: "着氷性の霧",
@@ -262,21 +262,22 @@ function widgetHtml() {
 	    .hourly-prob { color: #74c0fc; }
 	  }
 
-		  .candidate-list {
-		    display: grid;
-		    grid-template-columns: repeat(5, 126px);
-		    justify-content: space-between;
-		    gap: 10px;
-		    padding: 4px 0 8px;
-		  }
+			  .candidate-list {
+			    display: grid;
+			    --cand-gap: 10px;
+			    grid-template-columns: repeat(5, clamp(110px, calc((100% - (4 * var(--cand-gap))) / 5), 126px));
+			    justify-content: space-between;
+			    gap: var(--cand-gap);
+			    padding: 4px 0 8px;
+			  }
 
-		  .candidate-card {
-		    width: 126px;
-		    box-sizing: border-box;
-		    padding: 12px;
-		    border-radius: 14px;
-		    border: 1px solid rgba(0,0,0,0.08);
-		    background: rgba(255,255,255,0.3);
+			  .candidate-card {
+			    width: 100%;
+			    box-sizing: border-box;
+			    padding: 12px;
+			    border-radius: 14px;
+			    border: 1px solid rgba(0,0,0,0.08);
+			    background: rgba(255,255,255,0.3);
 		    cursor: pointer;
 		    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 		    display: flex;
@@ -285,9 +286,9 @@ function widgetHtml() {
 		    text-align: center;
 		    gap: 2px;
 		    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-		    min-height: 0;
-		    aspect-ratio: 126 / 115;
-		  }
+			    min-height: 0;
+			    aspect-ratio: 126 / 115;
+			  }
 	  .candidate-card:hover {
 	    transform: translateY(-2px);
 	    border-color: #ff922b;
@@ -332,15 +333,16 @@ function widgetHtml() {
 		    text-overflow: ellipsis;
 		    width: 100%;
 		  }
-		  @media (max-width: 900px) {
-		    .candidate-list { grid-template-columns: repeat(4, 126px); }
-		  }
-		  @media (max-width: 720px) {
-		    .candidate-list { grid-template-columns: repeat(3, 126px); }
-		  }
-		  @media (max-width: 520px) {
-		    .candidate-list { grid-template-columns: repeat(2, 126px); justify-content: center; }
-		  }
+			  /* スマホで無理に5個並べない（読める最小幅110pxを守る） */
+			  @media (max-width: 589px) {
+			    .candidate-list { grid-template-columns: repeat(4, clamp(110px, calc((100% - (3 * var(--cand-gap))) / 4), 126px)); }
+			  }
+			  @media (max-width: 469px) {
+			    .candidate-list { grid-template-columns: repeat(3, clamp(110px, calc((100% - (2 * var(--cand-gap))) / 3), 126px)); }
+			  }
+			  @media (max-width: 349px) {
+			    .candidate-list { grid-template-columns: repeat(2, clamp(110px, calc((100% - (1 * var(--cand-gap))) / 2), 126px)); justify-content: center; }
+			  }
 		  @media (prefers-color-scheme: dark) {
 		    .candidate-card { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
 		    .candidate-name { color: #eee; }
