@@ -343,11 +343,75 @@ function widgetHtml() {
 			  @media (max-width: 349px) {
 			    .candidate-list { grid-template-columns: repeat(2, clamp(110px, calc((100% - (1 * var(--cand-gap))) / 2), 126px)); justify-content: center; }
 			  }
-		  @media (prefers-color-scheme: dark) {
-		    .candidate-card { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
-		    .candidate-name { color: #eee; }
-		  }
-</style>
+			  @media (prefers-color-scheme: dark) {
+			    .candidate-card { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
+			    .candidate-name { color: #eee; }
+			  }
+			
+			  .map-card {
+			    width: 100%;
+			    border-radius: 16px;
+			    border: 1px solid rgba(0,0,0,0.08);
+			    background: rgba(255,255,255,0.3);
+			    padding: 12px;
+			    box-sizing: border-box;
+			  }
+			  .map-top {
+			    display: flex;
+			    align-items: center;
+			    justify-content: space-between;
+			    gap: 10px;
+			    margin-bottom: 10px;
+			  }
+			  .map-title {
+			    font-size: 14px;
+			    font-weight: 700;
+			    white-space: nowrap;
+			    overflow: hidden;
+			    text-overflow: ellipsis;
+			  }
+			  .map-iframe {
+			    width: 100%;
+			    height: 320px;
+			    border: 0;
+			    border-radius: 14px;
+			    background: rgba(0,0,0,0.03);
+			  }
+			  .map-actions {
+			    display: flex;
+			    justify-content: center;
+			    gap: 8px;
+			    margin-top: 10px;
+			    flex-wrap: wrap;
+			  }
+			  .map-btn {
+			    padding: 10px 12px;
+			  }
+			  .map-primary {
+			    background: #ff922b;
+			    border-color: #ff922b;
+			    color: #fff;
+			  }
+			  .map-meta {
+			    font-size: 11px;
+			    opacity: 0.6;
+			    text-align: center;
+			    margin-top: 8px;
+			  }
+			  .map-status {
+			    font-size: 12px;
+			    opacity: 0.75;
+			    text-align: center;
+			    margin-top: 6px;
+			    min-height: 16px;
+			  }
+			  @media (max-width: 520px) {
+			    .map-iframe { height: 280px; }
+			  }
+			  @media (prefers-color-scheme: dark) {
+			    .map-card { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
+			  }
+	</style>
 
 <div class="container">
   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
@@ -367,12 +431,14 @@ function widgetHtml() {
   const headline = document.getElementById("headline");
   const panel = document.getElementById("panel");
   const main = document.getElementById("main");
-  const detail = document.getElementById("detail");
-  const btn = document.getElementById("refresh");
-
-  let activeDate = null;
-  let lastValidInput = null;
-  let currentViewData = null;
+	  const detail = document.getElementById("detail");
+	  const btn = document.getElementById("refresh");
+	
+	  let activeDate = null;
+	  let lastValidInput = null;
+	  let currentViewData = null;
+	  let lastCandidatesView = null;
+	  let selectedCandidate = null;
 
 	  const ASSET_BASE_URL = ${JSON.stringify(ASSET_BASE_URL)};
 	  const FORECAST_API_URL = ${JSON.stringify(CONFIG.FORECAST_API_URL)};
@@ -386,13 +452,188 @@ function widgetHtml() {
 	    return WMO_JA[code] || ("不明（code=" + code + "）");
 	  }
 
-		  function countryCodeToFlag(code) {
-		    if (!code) return "";
-		    const cc = String(code).toUpperCase();
-		    if (!/^[A-Z]{2}$/.test(cc)) return "";
-		    const base = 127397;
-		    return String.fromCodePoint(base + cc.charCodeAt(0), base + cc.charCodeAt(1));
-		  }
+			  function countryCodeToFlag(code) {
+			    if (!code) return "";
+			    const cc = String(code).toUpperCase();
+			    if (!/^[A-Z]{2}$/.test(cc)) return "";
+			    const base = 127397;
+			    return String.fromCodePoint(base + cc.charCodeAt(0), base + cc.charCodeAt(1));
+			  }
+			  
+			  function clamp(n, min, max) {
+			    return Math.max(min, Math.min(max, n));
+			  }
+			  
+			  function buildOsmEmbedUrl(lat, lon, zoomIndex) {
+			    // ざっくりズーム（bboxの広さ）を段階で調整
+			    const deltas = [0.6, 0.35, 0.2, 0.12, 0.07, 0.04, 0.025, 0.015];
+			    const idx = clamp(Number(zoomIndex) || 0, 0, deltas.length - 1);
+			    const dLat = deltas[idx];
+			    const cos = Math.cos((lat * Math.PI) / 180) || 1;
+			    const dLon = dLat / Math.max(0.2, cos);
+			
+			    const left = clamp(lon - dLon, -180, 180);
+			    const right = clamp(lon + dLon, -180, 180);
+			    const bottom = clamp(lat - dLat, -85, 85);
+			    const top = clamp(lat + dLat, -85, 85);
+			
+			    const bbox = [left, bottom, right, top].map((v) => Number(v).toFixed(6)).join(",");
+			    const marker = Number(lat).toFixed(6) + "," + Number(lon).toFixed(6);
+			
+			    return (
+			      "https://www.openstreetmap.org/export/embed.html" +
+			      "?bbox=" + encodeURIComponent(bbox) +
+			      "&layer=mapnik" +
+			      "&marker=" + encodeURIComponent(marker)
+			    );
+			  }
+			  
+			  function renderCandidateMap(out, c) {
+			    selectedCandidate = c;
+			    lastCandidatesView = out;
+			
+			    const region = c.admin1 || "";
+			    const name = c.name || "";
+			    const country = c.country || "";
+			    const flag = countryCodeToFlag(c.country_code) || "🌐";
+			
+			    const lat = typeof c.latitude === "number" && Number.isFinite(c.latitude) ? c.latitude : null;
+			    const lon = typeof c.longitude === "number" && Number.isFinite(c.longitude) ? c.longitude : null;
+			    const latLon = (lat !== null && lon !== null) ? (lat.toFixed(4) + " / " + lon.toFixed(4)) : "";
+			
+			    const titleLabel = [country, region, name].filter(Boolean).join(" / ") || "地図";
+			    headline.textContent = titleLabel;
+			    detail.style.display = "none";
+			    main.innerHTML = "";
+			
+			    const wrap = document.createElement("div");
+			    wrap.className = "map-card";
+			
+			    const top = document.createElement("div");
+			    top.className = "map-top";
+			
+			    const title = document.createElement("div");
+			    title.className = "map-title";
+			    title.textContent = flag + " " + titleLabel;
+			
+			    const backBtn = document.createElement("button");
+			    backBtn.className = "btn map-btn";
+			    backBtn.textContent = "候補一覧へ戻る";
+			    backBtn.onclick = () => renderCandidates(lastCandidatesView || out);
+			
+			    top.appendChild(title);
+			    top.appendChild(backBtn);
+			    wrap.appendChild(top);
+			
+			    const iframe = document.createElement("iframe");
+			    iframe.className = "map-iframe";
+			    iframe.loading = "lazy";
+			    iframe.referrerPolicy = "no-referrer-when-downgrade";
+			
+			    let zoomIndex = 4;
+			    const setMapSrc = () => {
+			      if (lat === null || lon === null) {
+			        iframe.removeAttribute("src");
+			        return;
+			      }
+			      iframe.src = buildOsmEmbedUrl(lat, lon, zoomIndex);
+			    };
+			    setMapSrc();
+			    wrap.appendChild(iframe);
+			
+			    const actions = document.createElement("div");
+			    actions.className = "map-actions";
+			
+			    const zoomOutBtn = document.createElement("button");
+			    zoomOutBtn.className = "btn map-btn";
+			    zoomOutBtn.textContent = "−";
+			    zoomOutBtn.onclick = () => { zoomIndex = clamp(zoomIndex - 1, 0, 7); setMapSrc(); };
+			
+			    const zoomInBtn = document.createElement("button");
+			    zoomInBtn.className = "btn map-btn";
+			    zoomInBtn.textContent = "＋";
+			    zoomInBtn.onclick = () => { zoomIndex = clamp(zoomIndex + 1, 0, 7); setMapSrc(); };
+			
+			    const copyBtn = document.createElement("button");
+			    copyBtn.className = "btn map-btn";
+			    copyBtn.textContent = "コピー";
+			
+			    const sendBtn = document.createElement("button");
+			    sendBtn.className = "btn map-btn map-primary";
+			    sendBtn.textContent = "この場所で天気を出す";
+			
+			    const status = document.createElement("div");
+			    status.className = "map-status";
+			
+			    const copyText =
+			      "国: " + (country || "-") + "\\n" +
+			      "地域: " + (region || "-") + "\\n" +
+			      "地名: " + (name || "-") + "\\n" +
+			      "緯度: " + (lat !== null ? lat.toFixed(6) : "-") + "\\n" +
+			      "経度: " + (lon !== null ? lon.toFixed(6) : "-");
+			
+			    const setStatus = (text) => {
+			      status.textContent = text;
+			      if (!text) return;
+			      setTimeout(() => { if (status.textContent === text) status.textContent = ""; }, 2500);
+			    };
+			
+			    copyBtn.onclick = async () => {
+			      try {
+			        if (!navigator.clipboard?.writeText) throw new Error("clipboard unavailable");
+			        await navigator.clipboard.writeText(copyText);
+			        setStatus("コピーしたよ");
+			      } catch (e) {
+			        window.prompt("ここをコピーしてね", copyText);
+			      }
+			    };
+			
+			    sendBtn.onclick = async () => {
+			      if (lat === null || lon === null) {
+			        setStatus("座標がないから送信できない");
+			        return;
+			      }
+			      if (!window.openai?.sendFollowUpMessage) {
+			        setStatus("送信APIが使えない");
+			        return;
+			      }
+			
+			      const prompt =
+			        "次の地点の天気予報（7日）を表示して。\\n" +
+			        "場所: " + titleLabel + "\\n" +
+			        "緯度: " + lat.toFixed(6) + "\\n" +
+			        "経度: " + lon.toFixed(6) + "\\n" +
+			        "できれば緯度経度で予報を取得して。";
+			
+			      const original = sendBtn.textContent;
+			      sendBtn.disabled = true;
+			      sendBtn.textContent = "送信中...";
+			      try {
+			        await window.openai.sendFollowUpMessage({ prompt });
+			        sendBtn.textContent = "送信したよ";
+			        setStatus("チャットに送ったよ");
+			      } catch (e) {
+			        sendBtn.textContent = original;
+			        setStatus("送信に失敗");
+			      } finally {
+			        setTimeout(() => { sendBtn.disabled = false; sendBtn.textContent = original; }, 2500);
+			      }
+			    };
+			
+			    actions.appendChild(zoomOutBtn);
+			    actions.appendChild(zoomInBtn);
+			    actions.appendChild(copyBtn);
+			    actions.appendChild(sendBtn);
+			    wrap.appendChild(actions);
+			
+			    const meta = document.createElement("div");
+			    meta.className = "map-meta";
+			    meta.textContent = latLon;
+			    wrap.appendChild(meta);
+			    wrap.appendChild(status);
+			
+			    main.appendChild(wrap);
+			  }
 
 		  async function fetchForecastDirect(input) {
 		    const url = new URL(FORECAST_API_URL);
@@ -567,12 +808,12 @@ function widgetHtml() {
     }
   }
 
-	  function renderCandidates(out) {
-	    const candidates = out.candidates || [];
-	    headline.textContent = (out.query || "場所") + " の候補";
-	    detail.style.display = "none";
-	    main.innerHTML = '<div id="list" class="candidate-list"></div>';
-	    const list = main.querySelector("#list");
+		  function renderCandidates(out) {
+		    const candidates = out.candidates || [];
+		    headline.textContent = (out.query || "場所") + " の候補";
+		    detail.style.display = "none";
+		    main.innerHTML = '<div id="list" class="candidate-list"></div>';
+		    const list = main.querySelector("#list");
 	    
 	    candidates.forEach(c => {
 	      const card = document.createElement("div");
@@ -588,25 +829,20 @@ function widgetHtml() {
 	        ? (lat.toFixed(4) + " / " + lon.toFixed(4))
 	        : "";
 	      
-	      card.innerHTML = \`
-	        <div class="candidate-flag">\${flag}</div>
-	        <div class="candidate-region">\${[country, region].filter(Boolean).join(" / ")}</div>
-	        <div class="candidate-name">\${name}</div>
-	        <div class="candidate-latlon">\${latLon}</div>
-	      \`;
-	      
-		      card.onclick = async () => {
-		        headline.textContent = "取得中...";
-		        main.innerHTML = '<div style="text-align:center; padding:40px; opacity:0.6;">予報を読み込み中...</div>';
-		        const fullLabel = (region ? region + " " : "") + name;
-		        // 先に保存しておく（取得失敗時でも「更新」できるように）
-		        lastValidInput = { latitude: c.latitude, longitude: c.longitude, label: fullLabel };
-		        const next = await fetchForecastDirect({ latitude: c.latitude, longitude: c.longitude, label: fullLabel });
-		        render(next);
-		      };
-	      list.appendChild(card);
-	    });
-	  }
+		      card.innerHTML = \`
+		        <div class="candidate-flag">\${flag}</div>
+		        <div class="candidate-region">\${[country, region].filter(Boolean).join(" / ")}</div>
+		        <div class="candidate-name">\${name}</div>
+		        <div class="candidate-latlon">\${latLon}</div>
+		      \`;
+		      
+			      card.onclick = () => {
+			        // 候補地クリックでは予報を出さず、地図カードを出す
+			        renderCandidateMap(out, c);
+			      };
+		      list.appendChild(card);
+		    });
+		  }
 
 	  function renderForecast(out) {
 	    const daily = out.daily || [];
@@ -1253,6 +1489,8 @@ const handler = createMcpHandler(
           "openai/widgetCSP": {
             connect_domains: ["https://geocoding-api.open-meteo.com", "https://api.open-meteo.com"],
             resource_domains: WIDGET_RESOURCE_DOMAINS,
+            // 候補地の地図表示（OSM埋め込み）用
+            frame_domains: ["https://www.openstreetmap.org"],
           },
         },
       }],
