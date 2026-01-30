@@ -264,16 +264,17 @@ function widgetHtml() {
 
 		  .candidate-list {
 		    display: grid;
-		    grid-template-columns: repeat(5, minmax(0, 1fr));
+		    grid-template-columns: repeat(5, 100px);
+		    justify-content: space-between;
 		    gap: 10px;
 		    padding: 4px 0 8px;
 		  }
 
 		  .candidate-card {
-		    padding: 10px 8px;
+		    padding: 12px;
 		    border-radius: 14px;
 		    border: 1px solid rgba(0,0,0,0.08);
-		    background: rgba(255,255,255,0.4);
+		    background: rgba(255,255,255,0.3);
 		    cursor: pointer;
 		    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 		    display: flex;
@@ -282,7 +283,7 @@ function widgetHtml() {
 		    text-align: center;
 		    gap: 4px;
 		    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-		    min-height: 108px;
+		    min-height: 100px;
 		  }
 	  .candidate-card:hover {
 	    transform: translateY(-2px);
