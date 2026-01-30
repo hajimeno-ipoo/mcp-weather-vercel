@@ -16,7 +16,7 @@ const ASSET_BASE_URL_RAW =
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
 const ASSET_BASE_URL = ASSET_BASE_URL_RAW.replace(/\/+$/, "");
 const WIDGET_RESOURCE_DOMAINS = ASSET_BASE_URL ? [ASSET_BASE_URL] : [];
-const WIDGET_TEMPLATE_URI = "ui://widget/weather-v8.html";
+const WIDGET_TEMPLATE_URI = "ui://widget/weather-v9.html";
 
 const WMO_JA: Record<number, string> = {
   0: "快晴", 1: "ほぼ快晴", 2: "晴れ時々くもり", 3: "くもり", 45: "霧", 48: "着氷性の霧",
@@ -148,27 +148,29 @@ function widgetHtml() {
   .container { border: 1px solid rgba(0,0,0,.1); border-radius: 16px; padding: 16px; background: rgba(255,255,255,0.05); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
   .btn { padding: 8px 14px; border-radius: 10px; border: 1px solid rgba(0,0,0,.15); background: #fff; color: #000; cursor: pointer; font-size: 14px; font-weight: 500; }
   .card { flex: 0 0 100px; padding: 12px; border: 1px solid rgba(0,0,0,.08); border-radius: 14px; text-align: center; background: rgba(255,255,255,0.3); transition: transform 0.2s; cursor: pointer; }
-  .card.active { border-color: #ff922b; background: rgba(255,146,43,0.1); }
-  .card:active { transform: scale(0.95); }
-  .chart-wrapper { margin: 25px 0 15px 0; background: rgba(0,0,0,0.02); border-radius: 12px; padding: 40px 10px 25px 10px; position: relative; }
-  .chart-y-axis { position: absolute; left: 8px; top: 40px; bottom: 65px; width: 32px; display: flex; flex-direction: column; justify-content: space-between; font-size: 8px; color: #666; text-align: right; padding-right: 6px; border-right: 1px solid rgba(0,0,0,0.15); pointer-events: none; }
-  .chart-area { margin-left: 40px; margin-right: 10px; height: 320px; position: relative; }
-  .chart-area svg { pointer-events: none; }
-  .chart-x-axis { margin-left: 40px; margin-right: 10px; display: grid; grid-template-columns: repeat(7, 1fr); margin-top: 15px; font-size: 8px; color: #666; }
-  .detail-panel { margin-top: 12px; padding: 14px; border-radius: 12px; background: rgba(0,0,0,0.04); font-size: 13px; line-height: 1.6; display: none; }
+	  .card.active { border-color: #ff922b; background: rgba(255,146,43,0.1); }
+	  .card:active { transform: scale(0.95); }
+	  .chart-wrapper { margin: 25px 0 15px 0; background: rgba(0,0,0,0.02); border-radius: 12px; padding: 40px 10px 25px 10px; position: relative; }
+	  .chart-y-axis { position: absolute; left: 8px; top: 40px; bottom: 65px; width: 32px; display: flex; flex-direction: column; justify-content: space-between; font-size: 8px; color: #666; text-align: right; padding-right: 6px; border-right: 1px solid rgba(0,0,0,0.15); pointer-events: none; }
+	  .chart-y-axis.right { left: auto; right: 8px; text-align: left; padding-left: 6px; padding-right: 0; border-right: 0; border-left: 1px solid rgba(0,0,0,0.15); }
+	  .chart-area { margin-left: 40px; margin-right: 10px; height: 320px; position: relative; }
+	  .chart-area svg { pointer-events: none; }
+	  .chart-x-axis { margin-left: 40px; margin-right: 10px; display: grid; grid-template-columns: repeat(7, 1fr); margin-top: 15px; font-size: 8px; color: #666; }
+	  .detail-panel { margin-top: 12px; padding: 14px; border-radius: 12px; background: rgba(0,0,0,0.04); font-size: 13px; line-height: 1.6; display: none; }
 
   @media (prefers-color-scheme: dark) {
     body { color: #eee; }
     .container { border-color: rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); }
-    .btn { background: #444; color: #fff; border-color: rgba(255,255,255,0.1); }
-    .card { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
-    .chart-wrapper { background: rgba(255,255,255,0.03); }
-    .chart-y-axis { border-color: rgba(255,255,255,0.2); color: #999; }
-    .chart-x-axis { color: #999; }
-    .detail-panel { background: rgba(255,255,255,0.1); }
-    .hourly-temp { color: #fff; }
-    .hourly-prob { color: #74c0fc; }
-  }
+	    .btn { background: #444; color: #fff; border-color: rgba(255,255,255,0.1); }
+	    .card { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
+	    .chart-wrapper { background: rgba(255,255,255,0.03); }
+	    .chart-y-axis { border-color: rgba(255,255,255,0.2); color: #999; }
+	    .chart-y-axis.right { border-left-color: rgba(255,255,255,0.2); border-right-color: transparent; }
+	    .chart-x-axis { color: #999; }
+	    .detail-panel { background: rgba(255,255,255,0.1); }
+	    .hourly-temp { color: #fff; }
+	    .hourly-prob { color: #74c0fc; }
+	  }
 
   .candidate-card {
     padding: 16px;
@@ -370,24 +372,29 @@ function widgetHtml() {
     });
   }
 
-  function renderForecast(out) {
-    const daily = out.daily || [];
-    const loc = out.location || {};
-    headline.textContent = loc.name || loc.label || "天気予報";
-    main.innerHTML = "";
+	  function renderForecast(out) {
+	    const daily = out.daily || [];
+	    const loc = out.location || {};
+	    headline.textContent = loc.name || loc.label || "天気予報";
+	    main.innerHTML = "";
+	    detail.style.display = "none";
+	    activeDate = null;
 
-    // グラフ描画
-    try {
-      const maxT = 45;
-      const minT = -20;
-      const range = maxT - minT;
+	    // グラフ描画
+	    let weeklyChartWrapper = null;
+	    let hourlyChartWrapper = null;
+	    try {
+	      const maxT = 45;
+	      const minT = -20;
+	      const range = maxT - minT;
 
-      const chartWrapper = document.createElement("div");
-      chartWrapper.className = "chart-wrapper";
+	      const chartWrapper = document.createElement("div");
+	      chartWrapper.className = "chart-wrapper";
+	      weeklyChartWrapper = chartWrapper;
 
-      const yAxis = document.createElement("div");
-      yAxis.className = "chart-y-axis";
-      let yLabels = "";
+	      const yAxis = document.createElement("div");
+	      yAxis.className = "chart-y-axis";
+	      let yLabels = "";
       for (let t = maxT; t >= minT; t -= 5) {
         yLabels += '<span>' + t + '°</span>';
       }
@@ -534,12 +541,154 @@ function widgetHtml() {
         chartWrapper.appendChild(xAxis);
       } catch (e) { console.error("X-Axis render error:", e); }
 
-      main.appendChild(chartWrapper);
-    } catch (e) { console.error("Chart draw error:", e); }
+	      main.appendChild(chartWrapper);
+	    } catch (e) { console.error("Chart draw error:", e); }
 
-    const scroll = document.createElement("div");
-    scroll.style.cssText = "display:flex; gap:10px; overflow-x:auto; padding:4px 0; -webkit-overflow-scrolling: touch;";
-    daily.forEach(d => {
+	    // 日付クリック時に表示する「時間別（気温+湿度）」グラフ
+	    const hourlyWrapper = document.createElement("div");
+	    hourlyWrapper.className = "chart-wrapper";
+	    hourlyWrapper.style.display = "none";
+	    hourlyChartWrapper = hourlyWrapper;
+
+	    const yAxisTemp = document.createElement("div");
+	    yAxisTemp.className = "chart-y-axis";
+	    const yAxisHum = document.createElement("div");
+	    yAxisHum.className = "chart-y-axis right";
+
+	    const hourlyArea = document.createElement("div");
+	    hourlyArea.className = "chart-area";
+	    hourlyArea.style.marginRight = "40px";
+
+	    const hourlyXAxis = document.createElement("div");
+	    hourlyXAxis.className = "chart-x-axis";
+	    hourlyXAxis.style.marginRight = "40px";
+
+	    hourlyWrapper.appendChild(yAxisTemp);
+	    hourlyWrapper.appendChild(yAxisHum);
+	    hourlyWrapper.appendChild(hourlyArea);
+	    hourlyWrapper.appendChild(hourlyXAxis);
+	    main.appendChild(hourlyWrapper);
+
+	    function renderHourlyChart(day) {
+	      try {
+	        const timeArr = day?.hourly?.time || [];
+	        const tArr = day?.hourly?.temperature_2m || [];
+	        const hArr = day?.hourly?.relativehumidity_2m || [];
+	        if (!timeArr.length || !tArr.length) {
+	          hourlyArea.innerHTML = '<div style="text-align:center; padding:40px; opacity:0.6;">時間別データがありません</div>';
+	          yAxisTemp.innerHTML = "";
+	          yAxisHum.innerHTML = "";
+	          hourlyXAxis.innerHTML = "";
+	          return;
+	        }
+
+	        const temps = tArr.map(v => (typeof v === "number" && isFinite(v)) ? v : null);
+	        const hums = hArr.map(v => (typeof v === "number" && isFinite(v)) ? v : null);
+
+	        const tNums = temps.filter(v => v !== null);
+	        const tMin0 = tNums.length ? Math.min(...tNums) : -5;
+	        const tMax0 = tNums.length ? Math.max(...tNums) : 5;
+	        const pad = Math.max(2, (tMax0 - tMin0) * 0.2);
+	        const tMin = Math.floor((tMin0 - pad) * 2) / 2;
+	        const tMax = Math.ceil((tMax0 + pad) * 2) / 2;
+	        const tRange = Math.max(1, tMax - tMin);
+
+	        const tStep = (tRange <= 8) ? 1 : (tRange <= 16 ? 2 : 5);
+
+	        const getTempY = (temp) => (tMax - temp) / tRange * 1000;
+	        const getHumY = (hum) => (100 - hum) / 100 * 1000;
+
+	        // Y軸ラベル（左: ℃ / 右: %）
+	        const tempLabels = [];
+	        for (let v = tMax; v >= tMin - 1e-9; v -= tStep) tempLabels.push(v.toString());
+	        yAxisTemp.innerHTML = tempLabels.map(v => '<span>' + v + '°</span>').join("");
+	        yAxisHum.innerHTML = [100, 80, 60, 40, 20, 0].map(v => '<span>' + v + '%</span>').join("");
+
+	        // X軸ラベル（3時間おき）
+	        hourlyXAxis.innerHTML = "";
+	        const hourLabels = [];
+	        for (let i = 0; i < timeArr.length; i += 3) {
+	          const ts = String(timeArr[i] || "");
+	          const m = /T(\\d{2}):/.exec(ts);
+	          hourLabels.push(m && m[1] ? m[1] : String(i).padStart(2, "0"));
+	        }
+	        hourlyXAxis.style.gridTemplateColumns = "repeat(" + hourLabels.length + ", 1fr)";
+	        hourLabels.forEach(hh => {
+	          const span = document.createElement("span");
+	          span.style.textAlign = "center";
+	          span.innerHTML = '<span style="font-weight:700;">' + hh + '</span>';
+	          hourlyXAxis.appendChild(span);
+	        });
+
+	        // SVG描画
+	        hourlyArea.innerHTML = "";
+	        const svgNS = "http://www.w3.org/2000/svg";
+	        const svg = document.createElementNS(svgNS, "svg");
+	        svg.setAttribute("width", "100%");
+	        svg.setAttribute("height", "100%");
+	        svg.setAttribute("viewBox", "0 0 1000 1000");
+	        svg.setAttribute("preserveAspectRatio", "none");
+	        svg.style.overflow = "visible";
+	        svg.style.pointerEvents = "none";
+
+	        for (let v = tMin; v <= tMax + 1e-9; v += tStep) {
+	          const y = getTempY(v);
+	          const line = document.createElementNS(svgNS, "line");
+	          line.setAttribute("x1", "0"); line.setAttribute("y1", y);
+	          line.setAttribute("x2", "1000"); line.setAttribute("y2", y);
+	          line.setAttribute("stroke", "rgba(0,0,0,0.06)");
+	          line.setAttribute("stroke-width", "1");
+	          svg.appendChild(line);
+	        }
+
+	        const n = timeArr.length;
+	        const xStep = 1000 / Math.max(1, n - 1);
+	        const tempPts = [];
+	        const humPts = [];
+	        for (let i = 0; i < n; i++) {
+	          const x = i * xStep;
+	          if (temps[i] !== null) tempPts.push({ x, y: getTempY(temps[i]) });
+	          if (hums[i] !== null) humPts.push({ x, y: getHumY(hums[i]) });
+	        }
+
+	        const linePath = (pts) => {
+	          if (!pts || pts.length < 2) return "";
+	          let d = "M" + pts[0].x + "," + pts[0].y;
+	          for (let i = 0; i < pts.length - 1; i++) {
+	            const p0 = pts[i], p1 = pts[i+1];
+	            const cp1x = p0.x + (p1.x - p0.x) / 2;
+	            d += " C" + cp1x + "," + p0.y + " " + cp1x + "," + p1.y + " " + p1.x + "," + p1.y;
+	          }
+	          return d;
+	        };
+
+	        const tempPath = document.createElementNS(svgNS, "path");
+	        tempPath.setAttribute("d", linePath(tempPts));
+	        tempPath.setAttribute("fill", "none");
+	        tempPath.setAttribute("stroke", "#ff922b");
+	        tempPath.setAttribute("stroke-width", "4");
+	        tempPath.setAttribute("stroke-linecap", "round");
+	        svg.appendChild(tempPath);
+
+	        const humPath = document.createElementNS(svgNS, "path");
+	        humPath.setAttribute("d", linePath(humPts));
+	        humPath.setAttribute("fill", "none");
+	        humPath.setAttribute("stroke", "#1c7ed6");
+	        humPath.setAttribute("stroke-width", "3");
+	        humPath.setAttribute("stroke-linecap", "round");
+	        humPath.setAttribute("stroke-dasharray", "8 6");
+	        svg.appendChild(humPath);
+
+	        hourlyArea.appendChild(svg);
+	      } catch (e) {
+	        console.error("Hourly chart error:", e);
+	        hourlyArea.innerHTML = '<div style="text-align:center; padding:40px; opacity:0.6;">時間別グラフの表示に失敗しました</div>';
+	      }
+	    }
+
+	    const scroll = document.createElement("div");
+	    scroll.style.cssText = "display:flex; gap:10px; overflow-x:auto; padding:4px 0; -webkit-overflow-scrolling: touch;";
+	    daily.forEach(d => {
       const c = document.createElement("div");
       c.className = "card";
       if (activeDate === d.date) c.classList.add("active");
@@ -553,20 +702,25 @@ function widgetHtml() {
                     '<div style="height:44px; margin:2px 0 10px 0;">' + iconHtml + '</div>' +
                     '<div style="font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + d.summary_ja + '</div>';
       
-      c.onclick = () => {
-        if (activeDate === d.date) {
-          activeDate = null;
-          detail.style.display = "none";
-          c.classList.remove("active");
-        } else {
-          document.querySelectorAll(".card").forEach(el => el.classList.remove("active"));
-          activeDate = d.date;
-          c.classList.add("active");
-          detail.style.display = "block";
-          
-          detail.innerHTML = "";
-          
-          const header = document.createElement("div");
+	      c.onclick = () => {
+	        if (activeDate === d.date) {
+	          activeDate = null;
+	          detail.style.display = "none";
+	          c.classList.remove("active");
+	          if (weeklyChartWrapper) weeklyChartWrapper.style.display = "";
+	          if (hourlyChartWrapper) hourlyChartWrapper.style.display = "none";
+	        } else {
+	          document.querySelectorAll(".card").forEach(el => el.classList.remove("active"));
+	          activeDate = d.date;
+	          c.classList.add("active");
+	          detail.style.display = "block";
+	          if (weeklyChartWrapper) weeklyChartWrapper.style.display = "none";
+	          if (hourlyChartWrapper) hourlyChartWrapper.style.display = "";
+	          renderHourlyChart(d);
+	          
+	          detail.innerHTML = "";
+	          
+	          const header = document.createElement("div");
           header.style.cssText = "font-weight:700; margin-bottom:12px; font-size:14px; color: inherit;";
           header.textContent = d.date + ' (' + day + ') の詳細';
           detail.appendChild(header);
