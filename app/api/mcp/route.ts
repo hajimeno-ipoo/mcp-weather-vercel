@@ -4,6 +4,7 @@ import type { GeoCandidate, OpenMeteoGeocodingResponse, OpenMeteoForecastRespons
 import { APIError } from "./types";
 import { geocodeCache, forecastCache, generateGeocodeKey, generateForecastKey } from "./cache";
 import { ICON_PNG_BASE64 } from "./iconData";
+import { searchGeoNamesJpCandidates } from "./geonamesJp";
 
 const CONFIG = {
   GEOCODING_API_URL: process.env.NEXT_PUBLIC_GEOCODING_API_URL ?? "https://geocoding-api.open-meteo.com/v1/search",
@@ -16,7 +17,7 @@ const ASSET_BASE_URL_RAW =
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
 const ASSET_BASE_URL = ASSET_BASE_URL_RAW.replace(/\/+$/, "");
 const WIDGET_RESOURCE_DOMAINS = ASSET_BASE_URL ? [ASSET_BASE_URL] : [];
-const WIDGET_TEMPLATE_URI = "ui://widget/weather-v11.html";
+const WIDGET_TEMPLATE_URI = "ui://widget/weather-v12.html";
 
 const WMO_JA: Record<number, string> = {
   0: "快晴", 1: "ほぼ快晴", 2: "晴れ時々くもり", 3: "くもり", 45: "霧", 48: "着氷性の霧",
@@ -105,20 +106,47 @@ async function geocodeCandidates(place: string, count: number): Promise<GeoCandi
   const cacheKey = generateGeocodeKey(place, count);
   const cached = geocodeCache.get(cacheKey);
   if (cached) return cached;
-  const url = new URL(CONFIG.GEOCODING_API_URL);
-  url.searchParams.set("name", place);
-  url.searchParams.set("count", String(count));
-  url.searchParams.set("language", "ja");
-  url.searchParams.set("format", "json");
-  const r = await fetch(url.toString());
-  if (!r.ok) throw new APIError("GEO_ERR", `HTTP ${r.status}`);
-  const data: OpenMeteoGeocodingResponse = await r.json();
-  const candidates: GeoCandidate[] = (data?.results ?? []).map((hit: any) => ({
-    name: hit.name, country: hit.country, admin1: hit.admin1,
-    latitude: hit.latitude, longitude: hit.longitude, timezone: hit.timezone,
-  }));
-  geocodeCache.set(cacheKey, candidates);
-  return candidates;
+
+  // 1) ローカルGeoNames(JP/JP.txt)で部分一致検索
+  try {
+    const local = await searchGeoNamesJpCandidates(place, count);
+    if (local.length > 0) {
+      geocodeCache.set(cacheKey, local);
+      return local;
+    }
+  } catch {
+    // ローカルが読めない/壊れてても、リモートにフォールバック
+  }
+
+  const fetchOpenMeteo = async (language: "ja" | "en") => {
+    const url = new URL(CONFIG.GEOCODING_API_URL);
+    url.searchParams.set("name", place);
+    url.searchParams.set("count", String(count));
+    url.searchParams.set("language", language);
+    url.searchParams.set("format", "json");
+    const r = await fetch(url.toString());
+    if (!r.ok) throw new APIError("GEO_ERR", `HTTP ${r.status}`);
+    const data: OpenMeteoGeocodingResponse = await r.json();
+    const results = data?.results ?? [];
+    return results.map((hit: any) => ({
+      name: hit.name,
+      country: hit.country,
+      admin1: hit.admin1,
+      latitude: hit.latitude,
+      longitude: hit.longitude,
+      timezone: hit.timezone,
+    })) as GeoCandidate[];
+  };
+
+  // 2) Open-Meteo 日本語 → 3) 見つからなければ英語でもう1回（翻訳はしない）
+  const ja = await fetchOpenMeteo("ja");
+  if (ja.length > 0) {
+    geocodeCache.set(cacheKey, ja);
+    return ja;
+  }
+  const en = await fetchOpenMeteo("en");
+  geocodeCache.set(cacheKey, en);
+  return en;
 }
 
 async function forecastByCoords(lat: number, lon: number, days: number): Promise<OpenMeteoForecastResponse> {
@@ -362,13 +390,23 @@ function widgetHtml() {
     try {
       const out = data?.structuredContent || data;
       // 位置情報を保存（更新ボタン用）
-      if (out?.location?.latitude && out?.location?.longitude) {
+      const hasValidLocation =
+        typeof out?.location?.latitude === "number" &&
+        Number.isFinite(out.location.latitude) &&
+        typeof out?.location?.longitude === "number" &&
+        Number.isFinite(out.location.longitude);
+      if (hasValidLocation) {
         lastValidInput = {
           latitude: out.location.latitude,
           longitude: out.location.longitude,
           label: out.location.name || out.location.label
         };
-      } else if (window.openai?.toolInput?.latitude) {
+      } else if (
+        typeof window.openai?.toolInput?.latitude === "number" &&
+        Number.isFinite(window.openai.toolInput.latitude) &&
+        typeof window.openai?.toolInput?.longitude === "number" &&
+        Number.isFinite(window.openai.toolInput.longitude)
+      ) {
         lastValidInput = window.openai.toolInput;
       }
       
@@ -424,6 +462,8 @@ function widgetHtml() {
         headline.textContent = "取得中...";
         main.innerHTML = '<div style="text-align:center; padding:40px; opacity:0.6;">予報を読み込み中...</div>';
         const fullLabel = (region ? region + " " : "") + name;
+        // 先に保存しておく（取得失敗時でも「更新」できるように）
+        lastValidInput = { latitude: c.latitude, longitude: c.longitude, label: fullLabel };
         const next = await window.openai.callTool("get_forecast", {
           latitude: c.latitude, longitude: c.longitude, days: 7, label: fullLabel
         });
@@ -1028,7 +1068,13 @@ function widgetHtml() {
     try {
       headline.textContent = "更新中...";
       const input = lastValidInput || window.openai?.toolInput;
-      if (!input || !input.latitude || !input.longitude) throw new Error("位置情報が特定できません");
+      const hasLatLon =
+        input &&
+        typeof input.latitude === "number" &&
+        Number.isFinite(input.latitude) &&
+        typeof input.longitude === "number" &&
+        Number.isFinite(input.longitude);
+      if (!hasLatLon) throw new Error("位置情報が特定できません");
       
       const next = await window.openai.callTool("get_forecast", {
         latitude: input.latitude, longitude: input.longitude, days: input.days || 7, label: input.label

@@ -8,5 +8,9 @@ const nextConfig = {
   turbopack: {
     root: resolve(__dirname),
   },
+  // VercelのOutput File Tracingで同梱データを確実に含める
+  outputFileTracingIncludes: {
+    "/api/mcp": ["JP/JP.txt"],
+  },
 };
 export default nextConfig;
