@@ -242,6 +242,12 @@ function widgetHtml() {
 			    gap: var(--cand-gap);
 			    padding: 4px 0 8px;
 			  }
+			  .candidate-guide {
+			    font-size: 12px;
+			    font-weight: 800;
+			    opacity: 0.8;
+			    margin: 10px 0 12px;
+			  }
 
 			  .candidate-card {
 			    width: 100%;
@@ -812,7 +818,9 @@ function widgetHtml() {
 			    const candidates = out.candidates || [];
 			    headline.textContent = (out.query || "場所") + " の候補";
 			    detail.style.display = "none";
-			    main.innerHTML = '<div id="list" class="candidate-list"></div>';
+			    main.innerHTML =
+			      '<div class="candidate-guide">候補地を選択→地図表示→オレンジボタン→天気予報表示</div>' +
+			      '<div id="list" class="candidate-list"></div>';
 			    const list = main.querySelector("#list");
 	    
 	    candidates.forEach(c => {
