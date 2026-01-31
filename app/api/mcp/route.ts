@@ -214,14 +214,30 @@ function widgetHtml() {
 	    opacity: 0.85;
 	    white-space: nowrap;
 	  }
-	  .chart-legend-item { display:flex; align-items:center; gap:6px; }
-	  .dot { width: 10px; height: 10px; border-radius: 999px; display:inline-block; }
-	  .dot.temp { background:#ff922b; }
-	  .dot.hum { background:#1c7ed6; border: 2px dashed rgba(28,126,214,0.6); box-sizing: border-box; }
+		  .chart-legend-item { display:flex; align-items:center; gap:6px; }
+		  .dot { width: 10px; height: 10px; border-radius: 999px; display:inline-block; }
+		  .dot.temp { background:#ff922b; }
+		  .dot.hum { background:#1c7ed6; border: 2px dashed rgba(28,126,214,0.6); box-sizing: border-box; }
+		
+		  /* 横スクロールはできるけど、スクロールバーは非表示 */
+		  .hscroll {
+		    scrollbar-width: none; /* Firefox */
+		    -ms-overflow-style: none; /* IE/Edge legacy */
+		  }
+		  .hscroll::-webkit-scrollbar { /* Safari/Chrome */
+		    width: 0;
+		    height: 0;
+		    display: none;
+		  }
+		  .hscroll:focus-visible {
+		    outline: 2px solid rgba(255,146,43,0.9);
+		    outline-offset: 2px;
+		    border-radius: 12px;
+		  }
 
-	  .chart-overlay {
-	    position: absolute;
-	    inset: 0;
+		  .chart-overlay {
+		    position: absolute;
+		    inset: 0;
 	    pointer-events: auto;
 	    touch-action: none;
 	  }
@@ -486,6 +502,22 @@ function widgetHtml() {
 			      "&layer=mapnik" +
 			      "&marker=" + encodeURIComponent(marker)
 			    );
+			  }
+			  
+			  function enableArrowScroll(el, stepPx = 160) {
+			    if (!el) return;
+			    el.addEventListener("keydown", (ev) => {
+			      const key = ev.key;
+			      if (key !== "ArrowLeft" && key !== "ArrowRight" && key !== "ArrowUp" && key !== "ArrowDown") return;
+			      // 上下も「横スクロール」扱いにすると、キーボード操作が分かりやすい
+			      const dir = (key === "ArrowLeft" || key === "ArrowUp") ? -1 : 1;
+			      ev.preventDefault();
+			      try {
+			        el.scrollBy({ left: dir * stepPx, behavior: "smooth" });
+			      } catch {
+			        el.scrollLeft += dir * stepPx;
+			      }
+			    });
 			  }
 			  
 			  function renderCandidateMap(out, c) {
@@ -1292,9 +1324,14 @@ function widgetHtml() {
 	      }
 	    }
 
-	    const scroll = document.createElement("div");
-	    scroll.style.cssText = "display:flex; gap:10px; overflow-x:auto; padding:4px 0; -webkit-overflow-scrolling: touch;";
-	    daily.forEach(d => {
+		    const scroll = document.createElement("div");
+		    scroll.className = "hscroll";
+		    scroll.tabIndex = 0;
+		    scroll.setAttribute("role", "region");
+		    scroll.setAttribute("aria-label", "日付カード");
+		    enableArrowScroll(scroll, 220);
+		    scroll.style.cssText = "display:flex; gap:10px; overflow-x:auto; padding:4px 0; -webkit-overflow-scrolling: touch;";
+		    daily.forEach(d => {
       const c = document.createElement("div");
       c.className = "card";
       if (activeDate === d.date) c.classList.add("active");
@@ -1366,10 +1403,15 @@ function widgetHtml() {
             hTitle.textContent = "時間別予報";
             detail.appendChild(hTitle);
 
-            const hContainer = document.createElement("div");
-            hContainer.style.cssText = "display:flex; flex-direction:row; gap:10px; overflow-x:auto; padding:4px 0 16px 0; margin:0 -4px; -webkit-overflow-scrolling:touch; scroll-snap-type:x mandatory; white-space:nowrap;";
-            
-            d.hourly.time.forEach((t, i) => {
+	            const hContainer = document.createElement("div");
+	            hContainer.className = "hscroll";
+	            hContainer.tabIndex = 0;
+	            hContainer.setAttribute("role", "region");
+	            hContainer.setAttribute("aria-label", "時間別カード");
+	            enableArrowScroll(hContainer, 180);
+	            hContainer.style.cssText = "display:flex; flex-direction:row; gap:10px; overflow-x:auto; padding:4px 0 16px 0; margin:0 -4px; -webkit-overflow-scrolling:touch; scroll-snap-type:x mandatory; white-space:nowrap;";
+	            
+	            d.hourly.time.forEach((t, i) => {
               const timeObj = new Date(t);
               const timeStr = String(timeObj.getHours()).padStart(2, '0') + ":00";
               const item = document.createElement("div");
