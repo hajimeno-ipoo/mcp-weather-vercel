@@ -385,34 +385,30 @@ function widgetHtml() {
 			  }
 	</style>
 
-<div class="container">
-  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-    <div>
-      <div style="font-size:13px; opacity:0.6; margin-bottom:2px;">気温推移 (-20°C 〜 45°C)</div>
-      <div id="headline" style="font-size:20px; font-weight:700;">読み込み中...</div>
-    </div>
-    <button id="refresh" class="btn">更新</button>
-  </div>
-  <div id="panel">
-    <div id="main"></div>
-    <div id="detail" class="detail-panel"></div>
-  </div>
-</div>
+	<div class="container">
+	  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+	    <div>
+	      <div style="font-size:13px; opacity:0.6; margin-bottom:2px;">気温推移 (-20°C 〜 45°C)</div>
+	      <div id="headline" style="font-size:20px; font-weight:700;">読み込み中...</div>
+	    </div>
+	  </div>
+	  <div id="panel">
+	    <div id="main"></div>
+	    <div id="detail" class="detail-panel"></div>
+	  </div>
+	</div>
 
-<script type="module">
-  const headline = document.getElementById("headline");
-  const panel = document.getElementById("panel");
-  const main = document.getElementById("main");
-	  const detail = document.getElementById("detail");
-	  const btn = document.getElementById("refresh");
-	
-		  let activeDate = null;
-		  let lastValidInput = null;
-		  let lastGeocodeQuery = null;
-		  let currentViewData = null;
-		  let lastCandidatesView = null;
-		  let selectedCandidate = null;
-		  let viewMode = "unknown"; // "candidates" | "map" | "forecast"
+	<script type="module">
+	  const headline = document.getElementById("headline");
+	  const panel = document.getElementById("panel");
+	  const main = document.getElementById("main");
+		  const detail = document.getElementById("detail");
+		
+			  let activeDate = null;
+			  let lastValidInput = null;
+			  let currentViewData = null;
+			  let lastCandidatesView = null;
+			  let selectedCandidate = null;
 
 		  const ASSET_BASE_URL = ${JSON.stringify(ASSET_BASE_URL)};
 		  const FORECAST_API_URL = ${JSON.stringify(CONFIG.FORECAST_API_URL)};
@@ -478,12 +474,9 @@ function widgetHtml() {
 			    });
 			  }
 			  
-				  function renderCandidateMap(out, c) {
-				    selectedCandidate = c;
-				    lastCandidatesView = out;
-				    viewMode = "map";
-				    btn.disabled = true;
-				    btn.title = "地図表示中は更新できません";
+					  function renderCandidateMap(out, c) {
+					    selectedCandidate = c;
+					    lastCandidatesView = out;
 			
 			    const region = c.admin1 || "";
 			    const name = c.name || "";
@@ -815,11 +808,7 @@ function widgetHtml() {
   }
 
 			  function renderCandidates(out) {
-			    viewMode = "candidates";
-			    btn.disabled = false;
-			    btn.title = "";
 			    selectedCandidate = null;
-			    lastGeocodeQuery = { place: out.query || window.openai?.toolInput?.place || "", count: 20 };
 			    const candidates = out.candidates || [];
 			    headline.textContent = (out.query || "場所") + " の候補";
 			    detail.style.display = "none";
@@ -855,14 +844,11 @@ function widgetHtml() {
 		    });
 		  }
 
-		  function renderForecast(out) {
-		    viewMode = "forecast";
-		    btn.disabled = false;
-		    btn.title = "";
-		    selectedCandidate = null;
-		    const daily = out.daily || [];
-		    const loc = out.location || {};
-		    headline.textContent = loc.name || loc.label || "天気予報";
+			  function renderForecast(out) {
+			    selectedCandidate = null;
+			    const daily = out.daily || [];
+			    const loc = out.location || {};
+			    headline.textContent = loc.name || loc.label || "天気予報";
 	    main.innerHTML = "";
 	    detail.style.display = "none";
 	    activeDate = null;
@@ -1459,57 +1445,10 @@ function widgetHtml() {
   };
   init();
 
-	  btn.onclick = async () => {
-	    const originalText = headline.textContent;
-	    try {
-	      btn.disabled = true;
-	      headline.textContent = "更新中...";
-	      
-	      if (viewMode === "map") {
-	        // 地図表示中は更新無効（disabled想定だが念のため）
-	        throw new Error("地図表示中は更新できません");
-	      }
-	      
-	      // 候補一覧：同じ検索語で再検索（UI内で完結）
-	      if (viewMode === "candidates") {
-	        const place = lastGeocodeQuery?.place;
-	        const count = lastGeocodeQuery?.count || 20;
-	        if (!place) throw new Error("検索語がありません");
-	        const candidates = await fetchGeocodeNormal(place, count);
-	        if (!candidates || candidates.length === 0) throw new Error("候補が0件です");
-	        render({
-	          structuredContent: { kind: "geocode", query: place, candidates },
-	          content: [{ type: "text", text: "候補を更新しました" }]
-	        });
-	        return;
-	      }
-	      
-	      // 予報：緯度経度が確定している状態のみ
-	      const input = lastValidInput || window.openai?.toolInput;
-	      const hasLatLon =
-	        input &&
-	        typeof input.latitude === "number" &&
-	        Number.isFinite(input.latitude) &&
-	        typeof input.longitude === "number" &&
-	        Number.isFinite(input.longitude);
-	      if (!hasLatLon) throw new Error("位置情報が特定できません");
-	      
-	      const next = await fetchForecastDirect({ latitude: input.latitude, longitude: input.longitude, label: input.label });
-	      if (next) render(next);
-	      else throw new Error("レスポンスが空です");
-		    } catch (e) {
-		      console.error("Update process failed:", e);
-	      headline.textContent = "更新失敗 (" + e.message + ")";
-	      setTimeout(() => { headline.textContent = originalText; }, 3000);
-	    } finally {
-	      if (viewMode !== "map") btn.disabled = false;
-	    }
-	  };
-
-  window.addEventListener("openai:set_globals", () => {
-    render(currentViewData || window.openai.toolOutput);
-  });
-</script>
+	  window.addEventListener("openai:set_globals", () => {
+	    render(currentViewData || window.openai.toolOutput);
+	  });
+	</script>
 `.trim();
 }
 
