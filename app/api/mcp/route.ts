@@ -718,7 +718,7 @@ function widgetHtml() {
 			  
 			  async function fetchGeocodeNormal(place, count) {
 			    const base = ASSET_BASE_URL || window.location.origin;
-			    const url = new URL(base.replace(/\/+$/, "") + "/api/geocode");
+			    const url = new URL("/api/geocode", base);
 			    url.searchParams.set("place", String(place || ""));
 			    url.searchParams.set("count", String(count || 20));
 			
