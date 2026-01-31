@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test": "node scripts/test-manifest.mjs",
+    "lint": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "next": "16.1.5",

@@ -116,8 +116,8 @@ manifest.json をリポジトリのルートに配置し、ChatGPT 連携時に�
 {
   "widgets": {
     "weather-widget": {
-      "uri": "ui://widget/weather.html",
-      "csp": "default-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'",
+      "uri": "ui://widget/weather-v23.html",
+      "csp": "default-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src https://geocoding-api.open-meteo.com https://api.open-meteo.com; frame-src https://www.openstreetmap.org",
       "widget_domain": "weather-widget",
       "capabilities": {
         "interactive": true,
@@ -130,7 +130,7 @@ manifest.json をリポジトリのルートに配置し、ChatGPT 連携時に�
 ```
 
 **意味**：
-- `uri: "ui://widget/weather.html"` → ウィジェットの HTML ファイル（MCP が提供）
+- `uri: "ui://widget/weather-v23.html"` → ウィジェットの HTML ファイル（MCP が提供）
 - `csp` → インライン CSS/JS 実行を許可
 - `widget_domain` → 一意の識別子
 - `capabilities` → インタラクティブ、レスポンシブ、ダークモード対応
@@ -142,7 +142,6 @@ manifest.json をリポジトリのルートに配置し、ChatGPT 連携時に�
 ### ローカル開発時
 
 - [x] `manifest.json` を作成
-- [x] `days` デフォルト値を 7 に設定
 - [x] ウィジェット UI を改善（7日間横スクロール対応）
 - [x] ビルド成功確認
 
@@ -230,7 +229,7 @@ A: 以下を確認：
 3. `capabilities.interactive` が `true` か
 
 **Q: データが更新されない場合は？**  
-A: manifest.json の `days` デフォルト値（7）が正しく反映されているか確認
+A: 予報は常に7日で返します（入力で `days` を指定する必要はありません）
 
 ---
 

@@ -1468,8 +1468,7 @@ const geocodePlaceSchema = z.object({
 const getForecastSchema = z.object({
   latitude: z.number(),
   longitude: z.number(),
-  // 週間表示に固定（クライアントが何を渡しても7日にする）
-  days: z.number().int().min(1).max(7).default(7).optional(),
+  // 週間表示に固定（常に7日）
   label: z.string().optional(),
 });
 

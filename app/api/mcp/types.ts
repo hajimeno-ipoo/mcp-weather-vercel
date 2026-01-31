@@ -25,7 +25,6 @@ export interface GeoCandidate {
 export interface GeocodingResult {
   kind: "geocode";
   query: string;
-  days: number;
   candidates: GeoCandidate[];
 }
 
@@ -35,7 +34,6 @@ export interface GeocodingResult {
 export interface GeocodePlaceInput {
   place: string;
   count?: number;
-  days?: number;
 }
 
 // ============================================================================
@@ -108,8 +106,6 @@ export interface ForecastResult {
 export interface GetForecastInput {
   latitude: number;
   longitude: number;
-  days?: number;
-  timezone?: string;
   label?: string;
 }
 

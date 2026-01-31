@@ -20,7 +20,8 @@ ChatGPT の Developer mode から接続できる MCP（Model Context Protocol）
   
 - **get_forecast**: 緯度経度から天気予報データを取得します
   - ※互換用の非推奨ツールです。通常は候補地カード選択でウィジェットが直接取得します
-  - パラメータ: `latitude` (必須)、`longitude` (必須)、`days` (オプション、常に7日で返します)、`timezone` (オプション)
+  - パラメータ: `latitude` (必須)、`longitude` (必須)、`label` (オプション)
+  - 補足：常に7日で返します
 
 ### UI
 
@@ -210,8 +211,7 @@ ChatGPT:
     "arguments": {
       "latitude": 35.6762,
       "longitude": 139.6503,
-      "days": 3,
-      "timezone": "Asia/Tokyo"
+      "label": "Tokyo / Japan"
     }
   }
 }

@@ -39,8 +39,7 @@ curl -X POST http://localhost:3000/api/mcp \
       "name": "geocode_place",
       "arguments": {
         "place": "Tokyo",
-        "count": 5,
-        "days": 3
+        "count": 5
       }
     }
   }'
@@ -61,7 +60,6 @@ curl -X POST http://localhost:3000/api/mcp \
     "structuredContent": {
       "kind": "geocode",
       "query": "Tokyo",
-      "days": 3,
       "candidates": [
         {
           "name": "Tokyo",
@@ -89,9 +87,7 @@ curl -X POST http://localhost:3000/api/mcp \
       "name": "get_forecast",
       "arguments": {
         "latitude": 35.6762,
-        "longitude": 139.6503,
-        "days": 3,
-        "timezone": "Asia/Tokyo"
+        "longitude": 139.6503
       }
     }
   }'
@@ -113,15 +109,7 @@ curl -X POST http://localhost:3000/api/mcp \
       "kind": "forecast",
       "location": {
         "latitude": 35.6762,
-        "longitude": 139.6503,
-        "timezone": "Asia/Tokyo"
-      },
-      "current": {
-        "temperature_c": 12,
-        "windspeed": 8,
-        "winddirection": 180,
-        "is_day": true,
-        "time": "2026-01-28T14:30"
+        "longitude": 139.6503
       },
       "daily": [
         {

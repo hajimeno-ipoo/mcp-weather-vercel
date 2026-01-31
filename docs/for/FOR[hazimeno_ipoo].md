@@ -5,12 +5,12 @@
 
 # 何ができるか（箇条書き）
 - `geocode_place`: 地名から候補地（緯度・経度など）を返す
-- `get_forecast`: 緯度・経度から最大7日分の予報を返す（ウィジェットに日付カードやグラフを表示）
+- `get_forecast`: 緯度・経度から7日分の予報を返す（ウィジェットに日付カードやグラフを表示）
 
 # どう動くか（全体の流れ）
 - クライアントが `POST /api/mcp` に JSON-RPC でツール呼び出し
 - サーバーが Open-Meteo に問い合わせて結果を整形
-- `structuredContent` と、ウィジェット用 `ui://widget/weather.html` を返す
+- `structuredContent` と、ウィジェット用 `ui://widget/weather-v23.html` を返す
 
 # 主要な画面/モジュール（役割）
 - `app/api/mcp/route.ts`: MCP エンドポイントとウィジェットHTML（`widgetHtml()`）本体
@@ -18,7 +18,7 @@
 - `app/api/mcp/cache.ts`: 予報のキャッシュ
 
 # データの流れ（入力→処理→出力）
-- 入力: `place` または `latitude/longitude/days`（Zodで検証）
+- 入力: `place` または `latitude/longitude`（Zodで検証）
 - 処理: Open-Meteo API 呼び出し → 形を揃える
 - 出力: `structuredContent`（候補/予報）＋ウィジェットHTML
 
