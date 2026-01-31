@@ -530,7 +530,8 @@ function widgetHtml() {
 			    iframe.loading = "lazy";
 			    iframe.referrerPolicy = "no-referrer-when-downgrade";
 			
-			    let zoomIndex = 4;
+			    // デフォルトは「広め（スクショの見え方）」に固定
+			    let zoomIndex = 0;
 			    const setMapSrc = () => {
 			      if (lat === null || lon === null) {
 			        iframe.removeAttribute("src");
