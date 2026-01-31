@@ -28,7 +28,19 @@ ChatGPT 内に動的なウィジェットが表示されます：
 - 候補地検索結果のボタン
 - 地図（OpenStreetMap）
 - 天気予報一覧（週間/時間別）
-- 更新ボタン
+
+> 補足：ウィジェットは ChatGPT の表示領域内で動くため、外部URLを自由に叩けません。  
+> そのため、ウィジェットが直接通信するのは **Open‑Meteo** と **OpenStreetMap（地図のiframe）** だけにしています。
+
+### CSP（通信先の許可リスト）
+
+`manifest.json` の `widgets.weather-widget.csp` が正（この設定に合わせて実装しています）。
+
+- `connect-src`:  
+  - `https://geocoding-api.open-meteo.com`（候補地検索）  
+  - `https://api.open-meteo.com`（天気予報）
+- `frame-src`:  
+  - `https://www.openstreetmap.org`（地図埋め込み）
 
 ## セットアップ
 
@@ -109,7 +121,7 @@ ChatGPT:
 2. 候補地を表示（UI ウィジェット内）
 3. ユーザーが候補を選択 → 地図が表示される
 4. ユーザーが「この場所で天気を出す」を押す（会話が進む）
-5. 週間（7日）の予報を表示・更新可能
+5. 週間（7日）の予報を表示
 ```
 
 ## 評価（テスト用プロンプト10個）

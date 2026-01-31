@@ -1493,7 +1493,9 @@ const handler = createMcpHandler(
       inputSchema: geocodePlaceSchema,
       _meta: { "openai/outputTemplate": WIDGET_TEMPLATE_URI, "openai/widgetAccessible": true }
     }, async (input: any) => {
-      const candidates = await geocodeCandidates(input.place, 20);
+      // countは最大20（スキーマで制約済み）。未指定時は20。
+      const count = typeof input?.count === "number" && Number.isFinite(input.count) ? input.count : 20;
+      const candidates = await geocodeCandidates(input.place, count);
       return { structuredContent: { kind: "geocode", query: input.place, candidates }, content: [{ type: "text", text: "候補を表示しました" }] };
     });
 
