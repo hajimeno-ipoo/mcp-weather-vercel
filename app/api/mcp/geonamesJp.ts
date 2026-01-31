@@ -163,7 +163,12 @@ export async function searchGeoNamesJpCandidates(place: string, count: number): 
   hits.sort((a, b) => b.score - a.score);
 
   const candidates: GeoCandidate[] = [];
-  for (const { row } of hits.slice(0, Math.max(0, count))) {
+  const seenLatLon = new Set<string>();
+  for (const { row } of hits) {
+    if (candidates.length >= Math.max(0, count)) break;
+    const key = `${row.latitude.toFixed(6)},${row.longitude.toFixed(6)}`;
+    if (seenLatLon.has(key)) continue;
+    seenLatLon.add(key);
     const admin1 = row.admin1Code ? admin1NameByCode.get(row.admin1Code) : undefined;
     candidates.push({
       name: pickBestJaName(row.name, row.alternatenames, query),
