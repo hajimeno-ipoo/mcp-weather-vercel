@@ -450,18 +450,21 @@ function widgetHtml() {
 	  const detail = document.getElementById("detail");
 	  const btn = document.getElementById("refresh");
 	
-	  let activeDate = null;
-	  let lastValidInput = null;
-	  let currentViewData = null;
-	  let lastCandidatesView = null;
-	  let selectedCandidate = null;
+		  let activeDate = null;
+		  let lastValidInput = null;
+		  let lastGeocodeQuery = null;
+		  let currentViewData = null;
+		  let lastCandidatesView = null;
+		  let selectedCandidate = null;
+		  let viewMode = "unknown"; // "candidates" | "map" | "forecast"
 
-	  const ASSET_BASE_URL = ${JSON.stringify(ASSET_BASE_URL)};
-	  const FORECAST_API_URL = ${JSON.stringify(CONFIG.FORECAST_API_URL)};
-	  const ICON_PNG_BASE64 = ${JSON.stringify(ICON_PNG_BASE64)};
-	  const WMO_JA = ${JSON.stringify(WMO_JA)};
-	  const WMO_ICON_FILES = ${JSON.stringify(WMO_ICON_FILES)};
-	  const DEFAULT_ICON_FILE = ${JSON.stringify(DEFAULT_ICON_FILE)};
+		  const ASSET_BASE_URL = ${JSON.stringify(ASSET_BASE_URL)};
+		  const FORECAST_API_URL = ${JSON.stringify(CONFIG.FORECAST_API_URL)};
+		  const GEOCODING_API_URL = ${JSON.stringify(CONFIG.GEOCODING_API_URL)};
+		  const ICON_PNG_BASE64 = ${JSON.stringify(ICON_PNG_BASE64)};
+		  const WMO_JA = ${JSON.stringify(WMO_JA)};
+		  const WMO_ICON_FILES = ${JSON.stringify(WMO_ICON_FILES)};
+		  const DEFAULT_ICON_FILE = ${JSON.stringify(DEFAULT_ICON_FILE)};
 
 	  function wmoToJa(code) {
 	    if (code === null || code === undefined) return "不明";
@@ -520,9 +523,12 @@ function widgetHtml() {
 			    });
 			  }
 			  
-			  function renderCandidateMap(out, c) {
-			    selectedCandidate = c;
-			    lastCandidatesView = out;
+				  function renderCandidateMap(out, c) {
+				    selectedCandidate = c;
+				    lastCandidatesView = out;
+				    viewMode = "map";
+				    btn.disabled = true;
+				    btn.title = "地図表示中は更新できません";
 			
 			    const region = c.admin1 || "";
 			    const name = c.name || "";
@@ -741,9 +747,9 @@ function widgetHtml() {
 		      };
 		    });
 
-		    return {
-		      structuredContent: {
-		        kind: "forecast",
+			    return {
+			      structuredContent: {
+			        kind: "forecast",
 		        location: {
 		          name: input.label,
 		          latitude: input.latitude,
@@ -751,13 +757,56 @@ function widgetHtml() {
 		        },
 		        daily
 		      },
-		      content: [{ type: "text", text: "天気を取得しました" }]
-		    };
-		  }
+			      content: [{ type: "text", text: "天気を取得しました" }]
+			    };
+			  }
+			  
+			  async function fetchGeocodeDirect(place, count) {
+			    const fetchOpenMeteo = async (language) => {
+			      const url = new URL(GEOCODING_API_URL);
+			      url.searchParams.set("name", String(place || ""));
+			      url.searchParams.set("count", String(count || 20));
+			      url.searchParams.set("language", String(language || "ja"));
+			      url.searchParams.set("format", "json");
+			
+			      const r = await fetch(url.toString());
+			      if (!r.ok) throw new Error("HTTP " + r.status);
+			      const data = await r.json();
+			      const results = (data && data.results) ? data.results : [];
+			
+			      const mapped = results.map((hit) => ({
+			        name: hit.name,
+			        country: hit.country,
+			        country_code: hit.country_code,
+			        admin1: hit.admin1,
+			        latitude: hit.latitude,
+			        longitude: hit.longitude,
+			        timezone: hit.timezone,
+			      }));
+			
+			      // 緯度経度（小数6桁）で重複を統合
+			      const uniq = [];
+			      const seen = new Set();
+			      for (const c of mapped) {
+			        const lat = typeof c.latitude === "number" ? c.latitude : null;
+			        const lon = typeof c.longitude === "number" ? c.longitude : null;
+			        const key = (lat === null || lon === null) ? "" : (lat.toFixed(6) + "," + lon.toFixed(6));
+			        if (key && seen.has(key)) continue;
+			        if (key) seen.add(key);
+			        uniq.push(c);
+			      }
+			      return uniq;
+			    };
+			
+			    const ja = await fetchOpenMeteo("ja");
+			    if (ja.length > 0) return ja;
+			    const en = await fetchOpenMeteo("en");
+			    return en;
+			  }
 
-  function wmoToIconUrl(code, isNight) {
-    const base = ASSET_BASE_URL || "";
-    if (code === null || code === undefined) return base + "/weather_icon/" + DEFAULT_ICON_FILE.day;
+	  function wmoToIconUrl(code, isNight) {
+	    const base = ASSET_BASE_URL || "";
+	    if (code === null || code === undefined) return base + "/weather_icon/" + DEFAULT_ICON_FILE.day;
     const files = WMO_ICON_FILES[code] || DEFAULT_ICON_FILE;
     const file = isNight ? (files.night || files.day) : files.day;
     const b64 = ICON_PNG_BASE64[file];
@@ -841,12 +890,17 @@ function widgetHtml() {
     }
   }
 
-		  function renderCandidates(out) {
-		    const candidates = out.candidates || [];
-		    headline.textContent = (out.query || "場所") + " の候補";
-		    detail.style.display = "none";
-		    main.innerHTML = '<div id="list" class="candidate-list"></div>';
-		    const list = main.querySelector("#list");
+			  function renderCandidates(out) {
+			    viewMode = "candidates";
+			    btn.disabled = false;
+			    btn.title = "";
+			    selectedCandidate = null;
+			    lastGeocodeQuery = { place: out.query || window.openai?.toolInput?.place || "", count: 20 };
+			    const candidates = out.candidates || [];
+			    headline.textContent = (out.query || "場所") + " の候補";
+			    detail.style.display = "none";
+			    main.innerHTML = '<div id="list" class="candidate-list"></div>';
+			    const list = main.querySelector("#list");
 	    
 	    candidates.forEach(c => {
 	      const card = document.createElement("div");
@@ -877,10 +931,14 @@ function widgetHtml() {
 		    });
 		  }
 
-	  function renderForecast(out) {
-	    const daily = out.daily || [];
-	    const loc = out.location || {};
-	    headline.textContent = loc.name || loc.label || "天気予報";
+		  function renderForecast(out) {
+		    viewMode = "forecast";
+		    btn.disabled = false;
+		    btn.title = "";
+		    selectedCandidate = null;
+		    const daily = out.daily || [];
+		    const loc = out.location || {};
+		    headline.textContent = loc.name || loc.label || "天気予報";
 	    main.innerHTML = "";
 	    detail.style.display = "none";
 	    activeDate = null;
@@ -1477,28 +1535,52 @@ function widgetHtml() {
   };
   init();
 
-  btn.onclick = async () => {
-    const originalText = headline.textContent;
-    try {
-      headline.textContent = "更新中...";
-      const input = lastValidInput || window.openai?.toolInput;
-      const hasLatLon =
-        input &&
-        typeof input.latitude === "number" &&
-        Number.isFinite(input.latitude) &&
-        typeof input.longitude === "number" &&
-        Number.isFinite(input.longitude);
-      if (!hasLatLon) throw new Error("位置情報が特定できません");
-      
-		      const next = await fetchForecastDirect({ latitude: input.latitude, longitude: input.longitude, label: input.label });
+	  btn.onclick = async () => {
+	    const originalText = headline.textContent;
+	    try {
+	      btn.disabled = true;
+	      headline.textContent = "更新中...";
+	      
+	      if (viewMode === "map") {
+	        // 地図表示中は更新無効（disabled想定だが念のため）
+	        throw new Error("地図表示中は更新できません");
+	      }
+	      
+	      // 候補一覧：同じ検索語で再検索（UI内で完結）
+	      if (viewMode === "candidates") {
+	        const place = lastGeocodeQuery?.place;
+	        const count = lastGeocodeQuery?.count || 20;
+	        if (!place) throw new Error("検索語がありません");
+	        const candidates = await fetchGeocodeDirect(place, count);
+	        if (!candidates || candidates.length === 0) throw new Error("候補が0件です");
+	        render({
+	          structuredContent: { kind: "geocode", query: place, candidates },
+	          content: [{ type: "text", text: "候補を更新しました" }]
+	        });
+	        return;
+	      }
+	      
+	      // 予報：緯度経度が確定している状態のみ
+	      const input = lastValidInput || window.openai?.toolInput;
+	      const hasLatLon =
+	        input &&
+	        typeof input.latitude === "number" &&
+	        Number.isFinite(input.latitude) &&
+	        typeof input.longitude === "number" &&
+	        Number.isFinite(input.longitude);
+	      if (!hasLatLon) throw new Error("位置情報が特定できません");
+	      
+	      const next = await fetchForecastDirect({ latitude: input.latitude, longitude: input.longitude, label: input.label });
 	      if (next) render(next);
 	      else throw new Error("レスポンスが空です");
-	    } catch (e) {
-	      console.error("Update process failed:", e);
-      headline.textContent = "更新失敗 (" + e.message + ")";
-      setTimeout(() => { headline.textContent = originalText; }, 3000);
-    }
-  };
+		    } catch (e) {
+		      console.error("Update process failed:", e);
+	      headline.textContent = "更新失敗 (" + e.message + ")";
+	      setTimeout(() => { headline.textContent = originalText; }, 3000);
+	    } finally {
+	      if (viewMode !== "map") btn.disabled = false;
+	    }
+	  };
 
   window.addEventListener("openai:set_globals", () => {
     render(currentViewData || window.openai.toolOutput);
